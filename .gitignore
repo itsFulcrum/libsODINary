@@ -3,3 +3,6 @@
 # Shady Ignores
 shady/glslang/lib/release/NotNeededYet/
 shady/glslang/lib/debug/
+
+# Poly Ignores 
+poly/assimp/lib/debug/
