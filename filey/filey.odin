@@ -1,7 +1,7 @@
 package filey
 
 import "core:log"
-import os "core:os/os2"
+import "core:os"
 import "core:strings"
 import "core:time"
 

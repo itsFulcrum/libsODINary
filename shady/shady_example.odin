@@ -1,7 +1,7 @@
 package shady
 
 import "core:log"
-import os "core:os/os2"
+import "core:os"
 
 // An example of using shady to load and preprocess glsl files and compile them to SPIRV.
 load_spirv_from_glsl_file :: proc(src_filename : string, shader_stage : ShaderStage, spirv_version : SpirvVersion, client_version : ClientVersion, log_errors: bool = true) -> []byte {

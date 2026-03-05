@@ -3,7 +3,7 @@ package poly
 import "core:log"
 import "core:strings"
 import "core:path/filepath"
-import os "core:os/os2"
+import "core:os"
 import "core:mem"
 import "base:runtime"
 import "core:math"

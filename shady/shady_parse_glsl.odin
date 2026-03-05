@@ -2,7 +2,7 @@ package shady
 
 import "core:log"
 
-import os "core:os/os2"
+import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:fmt"
