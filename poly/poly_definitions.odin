@@ -1,4 +1,13 @@
 package poly
+import "core:math/linalg"
+
+LOAD_FLAGS_DEFAULT :: LoadFlags{.LoadMaterials, .LoadLights, .LogErrors}
+LoadFlags :: distinct bit_set[LoadFlag]
+LoadFlag :: enum {
+	LoadMaterials = 0,
+	LoadLights,
+	LogErrors,
+}
 
 SceneData :: struct {
 	meshes    : [dynamic]MeshData,
@@ -19,7 +28,7 @@ MeshData :: struct {
 	num_vertecies : u32,
 	positions	: [^][3]f32,
 	normals  	: [^][3]f32,
-	tangents 	: [^][3]f32,
+	tangents 	: [^][4]f32, // .w is a sign (-1 or +1) for bitangent reconsturction. (Bitan = cross(Norm,Tan) * Tan.w)
 	colors_0 	: [^][4]f32,
 	colors_1 	: [^][4]f32,
 	texcoords_0 : [^][2]f32,
@@ -121,9 +130,35 @@ LightData :: struct {
 
 	type : LightType,
 	color : [3]f32,
-	spot_angle_inner : f32,
-	spot_angle_outer : f32,
+	intensity : f32,
+	// TODO name these deg or radians.
+	spot_inner_cone_angle_radians : f32,
+	spot_outer_cone_angle_radians : f32,
 	// transform data
 	position : [3]f32,
 	orientation : quaternion128,
+}
+
+TransformData :: struct{
+	position : [3]f32,
+	scale : [3]f32,
+	orientation : quaternion128,
+}
+
+transform_data_get_identity :: proc() -> TransformData {
+	return TransformData{
+		position = {0,0,0},
+		scale    = {1,1,1},
+		orientation = quaternion(x = 0, y = 0, z = 0, w = 1),
+	}
+}
+
+transform_data_transform_child_by_parent :: proc "contextless" (child, parent: TransformData) -> TransformData {
+
+    return TransformData{
+    	//@Note - child positon must first be scaled by parent scale and rotated by parent orientation before adding to parent position
+        position    = parent.position + linalg.quaternion128_mul_vector3(parent.orientation, child.position * parent.scale),
+        scale       = parent.scale * child.scale,
+        orientation = parent.orientation * child.orientation,
+    };
 }

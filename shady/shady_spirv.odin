@@ -5,6 +5,7 @@ import "glslang"
 import "core:c"
 import "core:mem"
 
+import "core:log"
 import "core:fmt"
 import "core:strings"
 import "core:strconv"
@@ -78,6 +79,8 @@ transpile_glsl_to_SPIRV :: proc(glsl_src_code : []u8, shader_stage : ShaderStage
 		return err, false;
 	}
 
+	// assert(shader != nil);
+	// log.warnf("Compile to spirv, successful {}", successful);
 	successful = glslang.shader_parse(shader, &input)
 	if successful == 0 {
 

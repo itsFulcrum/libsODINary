@@ -15,12 +15,12 @@ import ai "assimp/import"
 
 base_assimp_post_process_flags :: 
 	ai.aiPostProcessSteps.Triangulate | 
-	ai.aiPostProcessSteps.CalcTangentSpace  |
-	ai.aiPostProcessSteps.RemoveRedundantMaterials |
-	ai.aiPostProcessSteps.SplitLargeMeshes |
-	ai.aiPostProcessSteps.OptimizeMeshes | 			// I suppose merge meshes with same material? not state clearly in docs 
-	ai.aiPostProcessSteps.ImproveCacheLocality | 	// Reorder triangle base on a heuristic to improve cache access
-	ai.aiPostProcessSteps.SortByPType 				// Remove points or line primitve.
+	ai.aiPostProcessSteps.CalcTangentSpace  
+//	ai.aiPostProcessSteps.RemoveRedundantMaterials |
+//	ai.aiPostProcessSteps.SplitLargeMeshes |
+//	ai.aiPostProcessSteps.OptimizeMeshes | 			// I suppose merge meshes with same material? not state clearly in docs 
+//	ai.aiPostProcessSteps.ImproveCacheLocality | 	// Reorder triangle base on a heuristic to improve cache access
+//	ai.aiPostProcessSteps.SortByPType 				// Remove points or line primitve.
 
 
 // Load a 3D file format into a flat scene representation (no hierarchy supported)
@@ -30,7 +30,7 @@ base_assimp_post_process_flags ::
 // For small temp allocations it using context.temp_allocator
 // For big or persistent allocations using context.allocator.
 // Returned scene must be freed by users. Recomend to use destroy_scene() procedure.
-load_gltf_from_file :: proc(filename: string, load_materials, load_lights, fill_missing_vertex_attributes : bool) -> (^SceneData, bool) {
+load_assimp_gltf_from_file :: proc(filename: string, load_materials, load_lights, fill_missing_vertex_attributes : bool) -> (^SceneData, bool) {
 	
 	filename_clean, alloc_error := filepath.clean(filename, context.temp_allocator);
 
@@ -53,188 +53,58 @@ load_gltf_from_file :: proc(filename: string, load_materials, load_lights, fill_
     }
 
     scene_data : ^SceneData = new(SceneData);
-
     scene_data.filename = strings.clone(filename_clean, context.allocator);
 
 
     load_assimp_scene_to_poly_scene(assimp_scene, scene_data, load_materials, load_lights, fill_missing_vertex_attributes);
 
-    return scene_data, true;
-}
 
-destroy_mesh :: proc(mesh : ^MeshData) {
-	
-	delete_string(mesh.name);
-
-	if mesh.indecies != nil do free(mesh.indecies);
-
-	if mesh.positions   != nil do free(mesh.positions  );
-	if mesh.normals     != nil do free(mesh.normals    );
-	if mesh.tangents    != nil do free(mesh.tangents   );
-	if mesh.colors_0    != nil do free(mesh.colors_0   );
-	if mesh.colors_1    != nil do free(mesh.colors_1   );
-	if mesh.texcoords_0 != nil do free(mesh.texcoords_0);
-	if mesh.texcoords_1 != nil do free(mesh.texcoords_1);	
-}
+    when true {
 
 
-destroy_scene :: proc(scene : ^SceneData){
+		tmp , tmp_ok := load_gltf_from_path(filename_clean);
 
-	if(scene == nil){
-		return;
-	}
-
-	delete_string(scene.filename);
-	
-	// delete lights
-	for &light in scene.lights {
-
-		delete_string(light.name);
-	}
-	delete(scene.lights);
-
-	// delete materials
-	for &mat in scene.materials {
-
-		delete(mat.name);
-
-		delete(mat.albedo_alpha_tex_filename);
-		delete(mat.normal_tex_filename);
-		delete(mat.orm_tex_filename);
-		delete(mat.emissive_tex_filename);
-	}
-
-	delete(scene.materials);
-
-	// delete meshes
-	for &mesh in scene.meshes{
-
-		destroy_mesh(&mesh);
-	}
-	delete(scene.meshes);
-}
-
-// Combine all meshes contained in a scene into one. This operation looses all information about material data
-join_scene_meshes :: proc(scene : ^SceneData, apply_transforms: bool = true) -> (^MeshData, bool) {
-
-	if(scene == nil) {
-		return nil, false;
-	}
-
-	if(len(scene.meshes) == 0){
-		return nil, false;
-	}
-
-	mesh_data : ^MeshData = new(MeshData, context.allocator);
-	
-	mesh_data.name = strings.join({string("Combined Scene - "), scene.filename},"", context.allocator);
-
-	mesh_data.transform_scale 		= [3]f32{1, 1, 1};
-	mesh_data.transform_position   	= [3]f32{0, 0, 0};
-	mesh_data.transform_orientation = quaternion(x = 0.0, y = 0.0, z = 0.0, w = 1.0);
-	mesh_data.material_index = -1;
-
-	// It makes our lives quite a bit easier to 
-	// just count the buffer size we need in advance.
-	total_num_vertecies : u32 = 0;
-	total_num_indecies  : u32 = 0;
-
-	for &mesh in scene.meshes {
-		total_num_vertecies += mesh.num_vertecies;
-		total_num_indecies  += mesh.num_indecies;
-	}
-
-	mesh_data.num_vertecies = total_num_vertecies;
-	mesh_data.num_indecies  = total_num_indecies;
-
-	// Allocate buffers
-
-	mesh_data.indecies = make_multi_pointer([^]u32, cast(int)total_num_indecies);
-
-	mesh_data.positions 	= make_multi_pointer([^][3]f32, cast(int)total_num_vertecies);
-	mesh_data.normals 		= make_multi_pointer([^][3]f32, cast(int)total_num_vertecies);
-	mesh_data.tangents 		= make_multi_pointer([^][3]f32, cast(int)total_num_vertecies);
-	mesh_data.colors_0 		= make_multi_pointer([^][4]f32, cast(int)total_num_vertecies);
-	mesh_data.colors_1 		= make_multi_pointer([^][4]f32, cast(int)total_num_vertecies);
-	mesh_data.texcoords_0 	= make_multi_pointer([^][2]f32, cast(int)total_num_vertecies);
-	mesh_data.texcoords_1 	= make_multi_pointer([^][2]f32, cast(int)total_num_vertecies);
-
-	// initialize aabbs to aabb of first mesh
-	mesh_data.aabb_min = scene.meshes[0].aabb_min;
-	mesh_data.aabb_max = scene.meshes[0].aabb_max;
-
-	// @Note - fulcrum
-	// first pass we just merge into one big buffer without worring about applying transfromations
-	mesh_offset : u32 = 0;
-	indecie_offset : u32 = 0;
-	for m in 0..<len(scene.meshes) {
-
-		if scene.meshes[m].positions   != nil do mem.copy(&mesh_data.positions[mesh_offset]  , &scene.meshes[m].positions[0]  , cast(int)scene.meshes[m].num_vertecies * size_of([3]f32));
-		if scene.meshes[m].normals     != nil do mem.copy(&mesh_data.normals[mesh_offset]    , &scene.meshes[m].normals[0]    , cast(int)scene.meshes[m].num_vertecies * size_of([3]f32));
-		if scene.meshes[m].tangents    != nil do mem.copy(&mesh_data.tangents[mesh_offset]   , &scene.meshes[m].tangents[0]   , cast(int)scene.meshes[m].num_vertecies * size_of([3]f32));
-		if scene.meshes[m].colors_0    != nil do mem.copy(&mesh_data.colors_0[mesh_offset]   , &scene.meshes[m].colors_0[0]   , cast(int)scene.meshes[m].num_vertecies * size_of([4]f32));
-		if scene.meshes[m].colors_1    != nil do mem.copy(&mesh_data.colors_1[mesh_offset]   , &scene.meshes[m].colors_1[0]   , cast(int)scene.meshes[m].num_vertecies * size_of([4]f32));
-		if scene.meshes[m].texcoords_0 != nil do mem.copy(&mesh_data.texcoords_0[mesh_offset], &scene.meshes[m].texcoords_0[0], cast(int)scene.meshes[m].num_vertecies * size_of([2]f32));
-		if scene.meshes[m].texcoords_1 != nil do mem.copy(&mesh_data.texcoords_1[mesh_offset], &scene.meshes[m].texcoords_1[0], cast(int)scene.meshes[m].num_vertecies * size_of([2]f32));
-
-		// @Note - fulcrum
-		// we cannot just copy indecies, since they of course point into the individual buffers to form triangles
-		// we have to offset each indecie by the amount of previously added vertecies.
-		for i in 0..<scene.meshes[m].num_indecies {
-			indecie: u32 = scene.meshes[m].indecies[i] + mesh_offset;
-			mesh_data.indecies[indecie_offset + i] = indecie;
+		if !tmp_ok || tmp == nil {
+			log.errorf("cgltf load Failed")
+			return nil , false;
 		}
 
-		mesh_data.aabb_min = linalg.min(mesh_data.aabb_min,scene.meshes[m].aabb_min);
-		mesh_data.aabb_max = linalg.max(mesh_data.aabb_max,scene.meshes[m].aabb_max);
+		// log.warnf("loaded {} meshes", len(tmp.meshes))
 
-		mesh_offset += scene.meshes[m].num_vertecies;
-		indecie_offset += scene.meshes[m].num_indecies;
-	}
+		// assimp_mesh_data := &scene_data.meshes[0];
+		// cgltf_mesh_data := &tmp.meshes[0];
 
-	// if we dont want to apply transformations we are already done here.
-	// otherwise wee need to multiply each position with the tranform matrix of the mesh
-	// ass well as multiply normals and tagents with normal matrix.
-	// aabb min/max also need to be recalculated.
+		// log.warnf("assimp: verts {}, indecies {}, min {}, max {}",assimp_mesh_data.num_vertecies, assimp_mesh_data.num_indecies, assimp_mesh_data.aabb_min, assimp_mesh_data.aabb_max)
+		// log.warnf("cgltf : verts {}, indecies {}, min {}, max {}",cgltf_mesh_data.num_vertecies, cgltf_mesh_data.num_indecies, cgltf_mesh_data.aabb_min, cgltf_mesh_data.aabb_max)
 
-	if(apply_transforms){
+		// for i in 0..<assimp_mesh_data.num_indecies {
+		// 	log.warnf("assimp:{} indecie {}",i, assimp_mesh_data.indecies[i])
+		// 	log.warnf("cgltf :{} indecie {}",i, cgltf_mesh_data.indecies[i])
+		// }
 
-		mesh_offset = 0;
-
-		// reset aabb
-		mesh_data.aabb_min = [3]f32{math.F32_MAX,math.F32_MAX, math.F32_MAX};
-		mesh_data.aabb_max = [3]f32{math.F32_MIN,math.F32_MIN, math.F32_MIN};
-
-		for &scene_mesh in scene.meshes{
-
-			transform_mat : matrix[4,4]f32 = linalg.matrix4_translate_f32(scene_mesh.transform_position) * linalg.matrix4_from_quaternion_f32(scene_mesh.transform_orientation) * linalg.matrix4_scale_f32(scene_mesh.transform_scale);
-			normal_mat : matrix[4,4]f32 = linalg.matrix4_inverse_transpose_f32(transform_mat);
-
-			for i in 0..<scene_mesh.num_vertecies {
-
-				vert_offset : u32 = mesh_offset + i;
-
-				pos : [3]f32 = mesh_data.positions[vert_offset];
-				nor : [3]f32 = mesh_data.normals[vert_offset];
-				tan : [3]f32 = mesh_data.tangents[vert_offset];
-
-				mesh_data.positions[vert_offset] = (transform_mat * [4]f32{pos.x, pos.y, pos.z, 1.0}).xyz;
-				mesh_data.normals[vert_offset]   = (normal_mat    * [4]f32{nor.x, nor.y, nor.z, 1.0}).xyz;
-				mesh_data.tangents[vert_offset]  = (normal_mat    * [4]f32{tan.x, tan.y, tan.z, 1.0}).xyz;
-			}
+		// for i in 0..<assimp_mesh_data.num_vertecies {
+		// 	log.warnf("assimp:{} pos {}",i, assimp_mesh_data.positions[i])
+		// 	log.warnf("cgltf :{} pos {}",i, cgltf_mesh_data.positions[i])
+		// }
 
 
-			aabb_min : [4]f32 = transform_mat * [4]f32{scene_mesh.aabb_min.x, scene_mesh.aabb_min.y, scene_mesh.aabb_min.z, 1.0};
-			aabb_max : [4]f32 = transform_mat * [4]f32{scene_mesh.aabb_max.x, scene_mesh.aabb_max.y, scene_mesh.aabb_max.z, 1.0};
+		destroy_scene(scene_data);
+		free(scene_data)
 
-			mesh_data.aabb_min = linalg.min(mesh_data.aabb_min, aabb_min.xyz);
-			mesh_data.aabb_max = linalg.max(mesh_data.aabb_max, aabb_max.xyz);
+		return tmp, true;
+    } else {
 
-			mesh_offset += scene_mesh.num_vertecies;
-		}
-	}
+    	// for &m in scene_data.meshes {
+    	// 	m.normals = nil;
+    	// 	m.tangents = nil;
+    	// 	m.texcoords_0 = nil;
+    	// 	m.texcoords_1 = nil;
+    	// 	m.colors_0 = nil;
+    	// 	m.colors_1 = nil;
+    	// }
 
-	return mesh_data, true;
+    	return scene_data, true;
+    }
 }
 
 
@@ -377,9 +247,7 @@ load_assimp_materials_to_poly_scene :: proc(ai_scene: ^ai.aiScene, poly_scene: ^
 				else{
 					poly_mat.alpha_value = 0.5;
 				}
-			}
-
-		
+			}	
 
 			double_sided : int;
 			ai_return = ai.get_material_integerArray(ai_mat, "$mat.twosided", 0, 0, &double_sided,nil);
@@ -568,7 +436,7 @@ load_assimp_mesh :: proc(mesh: ^ai.aiMesh, mesh_data : ^MeshData, fill_missing_a
 		// just allocate all, they'll be zero-initialized by default.
 		mesh_data.positions   = make_multi_pointer([^][3]f32, num_verts);
 		mesh_data.normals     = make_multi_pointer([^][3]f32, num_verts);
-		mesh_data.tangents    = make_multi_pointer([^][3]f32, num_verts);
+		mesh_data.tangents    = make_multi_pointer([^][4]f32, num_verts);
 		mesh_data.colors_0    = make_multi_pointer([^][4]f32, num_verts);
 		mesh_data.colors_1    = make_multi_pointer([^][4]f32, num_verts);
 		mesh_data.texcoords_0 = make_multi_pointer([^][2]f32, num_verts);
@@ -578,7 +446,7 @@ load_assimp_mesh :: proc(mesh: ^ai.aiMesh, mesh_data : ^MeshData, fill_missing_a
 		// only allocate if there is data.
 		if mesh.mVertices  != nil do mesh_data.positions   = make_multi_pointer([^][3]f32, num_verts);
 		if mesh.mNormals   != nil do mesh_data.normals     = make_multi_pointer([^][3]f32, num_verts);
-		if mesh.mTangents  != nil do mesh_data.tangents    = make_multi_pointer([^][3]f32, num_verts);
+		if mesh.mTangents  != nil do mesh_data.tangents    = make_multi_pointer([^][4]f32, num_verts);
 		if mesh.mColors[0] != nil do mesh_data.colors_0    = make_multi_pointer([^][4]f32, num_verts);
 		if mesh.mColors[1] != nil do mesh_data.colors_1    = make_multi_pointer([^][4]f32, num_verts);
 		if mesh.mTextureCoords[0] != nil do mesh_data.texcoords_0 = make_multi_pointer([^][2]f32, num_verts);
@@ -588,9 +456,22 @@ load_assimp_mesh :: proc(mesh: ^ai.aiMesh, mesh_data : ^MeshData, fill_missing_a
 	// copy over what there is.
 	if mesh.mVertices  != nil do mem.copy(&mesh_data.positions[0], &mesh.mVertices[0] , cast(int)num_verts * size_of([3]f32));
 	if mesh.mNormals   != nil do mem.copy(&mesh_data.normals[0]  , &mesh.mNormals[0]  , cast(int)num_verts * size_of([3]f32));
-	if mesh.mTangents  != nil do mem.copy(&mesh_data.tangents[0] , &mesh.mTangents[0] , cast(int)num_verts * size_of([3]f32));
+	
 	if mesh.mColors[0] != nil do mem.copy(&mesh_data.colors_0[0] , &mesh.mColors[0][0], cast(int)num_verts * size_of([4]f32));
 	if mesh.mColors[1] != nil do mem.copy(&mesh_data.colors_1[0] , &mesh.mColors[1][0], cast(int)num_verts * size_of([4]f32));
+	
+
+	// @Note assimp has tangents as xyz but we need that .w wich is a sin (-1 or +1) to reconstruct bitangent correctly
+	// we force this to 1 here but its technically not correct
+	// and assimp assumes we also load and store bitangents..
+	if mesh.mTangents  != nil {
+
+		for tan in 0..<num_verts{
+			a_tan : = &mesh.mTangents[tan];
+			mesh_data.tangents[tan] = [4]f32 {a_tan.x, a_tan.y,a_tan.z,1.0};	
+		}
+	} 
+
 	
 	// @Note
 	// Texcoords we unfortunately have to copy one by one because assimp stores them as vec3 not vec2 for some reason.
@@ -634,16 +515,7 @@ load_assimp_mesh :: proc(mesh: ^ai.aiMesh, mesh_data : ^MeshData, fill_missing_a
 
 	// Compute aabb
 
-	first_pos := mesh_data.positions[0];
-
-	mesh_data.aabb_min = first_pos;
-	mesh_data.aabb_max = first_pos;
-
-	for i in 0..<num_verts{
-		pos := mesh_data.positions[i];
-		mesh_data.aabb_min = linalg.min(mesh_data.aabb_min, pos);
-		mesh_data.aabb_max = linalg.max(mesh_data.aabb_max, pos);
-	}
+	mesh_data.aabb_min, mesh_data.aabb_max = mesh_data_compute_aabb(mesh_data);
 
 	// TODO: check if aabb min and max on any axis are almost identical and add small offset in that case..
 
@@ -715,7 +587,7 @@ load_assimp_nodes_to_poly_scene_recursive :: proc(ai_scene: ^ai.aiScene, node: ^
 		//defer delete(node_name_str);
 		//log.infof("NumLights: {}",numLights);
 
-		for i: u32 = 0; i < numLights; i+=1 {
+		lights_loop: for i: u32 = 0; i < numLights; i+=1 {
 
 			aiLight : ^ai.aiLight = ai_scene.mLights[i];
 			light_name_str := assimp.string_clone_from_ai_string(&aiLight.mName,context.temp_allocator);
@@ -727,12 +599,12 @@ load_assimp_nodes_to_poly_scene_recursive :: proc(ai_scene: ^ai.aiScene, node: ^
 				light_type: LightType;
 
 				switch aiLight.mType {
-					case ai.aiLightSourceType.UNDEFINED: 	return;
+					case ai.aiLightSourceType.UNDEFINED: 	continue lights_loop;
 					case ai.aiLightSourceType.DIRECTIONAL: 	light_type = LightType.DIRECTIONAL;
 					case ai.aiLightSourceType.POINT:		light_type = LightType.POINT;
 					case ai.aiLightSourceType.SPOT:			light_type = LightType.SPOT;
-					case ai.aiLightSourceType.AMBIENT:		return;
-					case ai.aiLightSourceType.AREA:			return;
+					case ai.aiLightSourceType.AMBIENT:		continue lights_loop;
+					case ai.aiLightSourceType.AREA:			continue lights_loop;
 				}
 
 				light_data : LightData;
@@ -750,9 +622,26 @@ load_assimp_nodes_to_poly_scene_recursive :: proc(ai_scene: ^ai.aiScene, node: ^
 				// get transform data
 				light_data.orientation = assimp.quaterion_convert(assimp_orientation);
 
-				light_data.color = aiLight.mColorAmbient;
-				light_data.spot_angle_inner = aiLight.mAngleInnerCone;
-				light_data.spot_angle_outer = aiLight.mAngleOuterCone;
+
+				//@Note: Assimp only give us a single color value for lights. Which is light_color * light_intensity.
+				// Below we attempt to recover the original values but it only works correctly when light brightness was 
+				// fully given by the original light_intensity values. Meaning that the color part had full luminance (not darkend)
+				// By taking the max channel we still get a decent approximation of the original values even if color was not full luminance 
+				// but I belive in that case its impossible to restore it correctly.
+				// Another option would be to use luminance of color as a denominator but in my test it was not better compared to taking the max.
+				color : [3]f32 = aiLight.mColorAmbient;
+				intensity : f32 = max(max(color.r, color.g), color.b);
+				
+				if intensity > 0.0 {
+					color /= intensity;	
+				}
+
+				light_data.color = color;
+				light_data.intensity = intensity;
+
+
+				light_data.spot_inner_cone_angle_radians = aiLight.mAngleInnerCone;
+				light_data.spot_outer_cone_angle_radians = aiLight.mAngleOuterCone;
 
 				append(&poly_scene.lights, light_data);
 				return;
