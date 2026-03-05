@@ -2,7 +2,6 @@ package poly
 
 import "core:log"
 import "core:strings"
-import "core:path/filepath"
 import "core:os"
 import "core:mem"
 import "base:runtime"
@@ -14,14 +13,13 @@ import ai "assimp/import"
 
 
 base_assimp_post_process_flags :: 
-	ai.aiPostProcessSteps.Triangulate | 
-	ai.aiPostProcessSteps.CalcTangentSpace  
-//	ai.aiPostProcessSteps.RemoveRedundantMaterials |
-//	ai.aiPostProcessSteps.SplitLargeMeshes |
-//	ai.aiPostProcessSteps.OptimizeMeshes | 			// I suppose merge meshes with same material? not state clearly in docs 
-//	ai.aiPostProcessSteps.ImproveCacheLocality | 	// Reorder triangle base on a heuristic to improve cache access
-//	ai.aiPostProcessSteps.SortByPType 				// Remove points or line primitve.
-
+ai.aiPostProcessSteps.Triangulate | 
+ai.aiPostProcessSteps.CalcTangentSpace  |
+ai.aiPostProcessSteps.RemoveRedundantMaterials |
+ai.aiPostProcessSteps.SplitLargeMeshes |
+ai.aiPostProcessSteps.OptimizeMeshes | 			// I suppose merge meshes with same material? not state clearly in docs 
+ai.aiPostProcessSteps.ImproveCacheLocality | 	// Reorder triangle base on a heuristic to improve cache access
+ai.aiPostProcessSteps.SortByPType 				// Remove points or line primitve.
 
 // Load a 3D file format into a flat scene representation (no hierarchy supported)
 // Tested mostly with .glTF file format
@@ -32,22 +30,23 @@ base_assimp_post_process_flags ::
 // Returned scene must be freed by users. Recomend to use destroy_scene() procedure.
 load_assimp_gltf_from_file :: proc(filename: string, load_materials, load_lights, fill_missing_vertex_attributes : bool) -> (^SceneData, bool) {
 	
-	filename_clean, alloc_error := filepath.clean(filename, context.temp_allocator);
+	filename_clean, alloc_error := os.clean_path(filename, context.temp_allocator);
 
-	if(alloc_error != runtime.Allocator_Error.None) {
+	if alloc_error != runtime.Allocator_Error.None {
 		log.errorf("Poly: Failed to load model: {}, runetime allocation error", filename_clean);
 		return nil, false;
 	}
 
-	if(!os.is_file(filename_clean)){
+	if !os.is_file(filename_clean) {
 		log.errorf("Poly: Failed to load model, file does not exist: {}", filename_clean);
 		return nil, false;
 	}
 
 
+
 	assimp_scene : ^assimp.Scene = assimp.import_file_from_file(filename_clean, cast(u32)base_assimp_post_process_flags );
     defer { assimp.release_import(assimp_scene); }
-    if(assimp_scene == nil) {
+    if assimp_scene == nil {
     	log.errorf("Poly: Failed to load model: {}", assimp.get_error_string());
     	return nil, false;
     }
@@ -59,7 +58,7 @@ load_assimp_gltf_from_file :: proc(filename: string, load_materials, load_lights
     load_assimp_scene_to_poly_scene(assimp_scene, scene_data, load_materials, load_lights, fill_missing_vertex_attributes);
 
 
-    when true {
+    when false {
 
 
 		tmp , tmp_ok := load_gltf_from_path(filename_clean);
@@ -114,7 +113,7 @@ load_assimp_scene_to_poly_scene :: proc(assimp_scene: ^ai.aiScene, poly_scene: ^
 	assert(assimp_scene != nil)
 	assert(poly_scene != nil)
 
-	if(load_materials){
+	if load_materials {
 		num_materials: u32 = assimp_scene.mNumMaterials;
 		reserve_dynamic_array(&poly_scene.materials, num_materials);
 		load_assimp_materials_to_poly_scene(assimp_scene, poly_scene);
@@ -132,8 +131,7 @@ load_assimp_materials_to_poly_scene :: proc(ai_scene: ^ai.aiScene, poly_scene: ^
 
 	num_materials := ai_scene.mNumMaterials;
 
-	
-	relative_filepath_dir : string = filepath.dir(poly_scene.filename, context.temp_allocator);
+	relative_filepath_dir, path_filename := os.split_path(poly_scene.filename);
 
 	for i: u32 = 0; i < num_materials; i+=1 {
 
@@ -148,7 +146,7 @@ load_assimp_materials_to_poly_scene :: proc(ai_scene: ^ai.aiScene, poly_scene: ^
 
 		mat_name_aiStr : ai.aiString;
 		ai_return = ai.get_material_string(ai_mat,"?mat.name", 0, 0,&mat_name_aiStr);
-		if(ai_return == ai.aiReturn.SUCCESS) {
+		if ai_return == ai.aiReturn.SUCCESS {
 			poly_mat.name = assimp.string_clone_from_ai_string(&mat_name_aiStr,context.allocator);
 		}
 		
@@ -303,11 +301,12 @@ load_assimp_materials_to_poly_scene :: proc(ai_scene: ^ai.aiScene, poly_scene: ^
 			// blender will include the substring 'opacity' if the alpha input came from an alpha texture slot. so we could search the filename for 'opacity'
 			// but this is not reliable since we may have the alpha input from something that wasn't stored in the alpha channel
 			
-			if(ai_return == ai.aiReturn.SUCCESS) {
+			if ai_return == ai.aiReturn.SUCCESS {
 				
 				albedo_alpha_filename := assimp.string_clone_from_ai_string(&albedo_alpha_filename_aiStr,context.temp_allocator);
-				albedo_alpha_path := filepath.join({relative_filepath_dir, albedo_alpha_filename},context.temp_allocator);
-				
+				albedo_alpha_path, join_err := os.join_path({relative_filepath_dir, albedo_alpha_filename}, context.temp_allocator);
+				assert(join_err == nil);
+
 				if(os.is_file(albedo_alpha_path)) {
 					poly_mat.has_albedo_alpha_tex = true;
 					poly_mat.albedo_alpha_tex_filename = strings.clone(albedo_alpha_path, context.allocator);
@@ -319,17 +318,18 @@ load_assimp_materials_to_poly_scene :: proc(ai_scene: ^ai.aiScene, poly_scene: ^
 
 		// Check Normal texture
 		normal_tex_count := ai.get_material_textureCount(ai_mat,ai.aiTextureType.NORMALS);
-		if (normal_tex_count > 0) {
+		if normal_tex_count > 0 {
 
 			normal_filename_aiStr : ai.aiString;
 			ai_return = ai.get_material_texture(ai_mat,ai.aiTextureType.NORMALS, 0 , &normal_filename_aiStr, nil,nil,nil ,nil,nil);
 
-			if(ai_return == ai.aiReturn.SUCCESS) {
+			if ai_return == ai.aiReturn.SUCCESS {
 				
 				normal_filename := assimp.string_clone_from_ai_string(&normal_filename_aiStr,context.temp_allocator);
-				normal_path := filepath.join({relative_filepath_dir, normal_filename},context.temp_allocator);
-				
-				if(os.is_file(normal_path)){
+				normal_path, join_err := os.join_path({relative_filepath_dir, normal_filename}, context.temp_allocator);
+				assert(join_err == nil);
+
+				if os.is_file(normal_path) {
 					poly_mat.normal_tex_filename = strings.clone(normal_path, context.allocator);
 					poly_mat.has_normal_tex = true;
 				}
@@ -339,16 +339,17 @@ load_assimp_materials_to_poly_scene :: proc(ai_scene: ^ai.aiScene, poly_scene: ^
 
 		// Check ORM texture // occlusion, roughness, metallic
 		orm_tex_count := ai.get_material_textureCount(ai_mat,ai.aiTextureType.aiTextureType_GLTF_METALLIC_ROUGHNESS);
-		if (orm_tex_count > 0) {
+		if orm_tex_count > 0 {
 
 			orm_filename_aiStr : ai.aiString;
 			ai_return = ai.get_material_texture(ai_mat, ai.aiTextureType.aiTextureType_GLTF_METALLIC_ROUGHNESS, 0 , &orm_filename_aiStr, nil,nil,nil ,nil,nil)
 
-			if(ai_return == ai.aiReturn.SUCCESS){
+			if ai_return == ai.aiReturn.SUCCESS {
 
 				orm_filename := assimp.string_clone_from_ai_string(&orm_filename_aiStr,context.temp_allocator);
-				orm_path := filepath.join({relative_filepath_dir, orm_filename},context.temp_allocator);
-				
+				orm_path, join_err := os.join_path({relative_filepath_dir, orm_filename}, context.temp_allocator);
+				assert(join_err == os.ERROR_NONE);
+
 				if(os.is_file(orm_path)) {
 					poly_mat.orm_tex_filename = strings.clone(orm_path, context.allocator);
 					
@@ -361,16 +362,17 @@ load_assimp_materials_to_poly_scene :: proc(ai_scene: ^ai.aiScene, poly_scene: ^
 
 		// Check emissive texture
 		emissive_tex_count := ai.get_material_textureCount(ai_mat,ai.aiTextureType.EMISSIVE);
-		if (emissive_tex_count > 0) {
+		if emissive_tex_count > 0 {
 
 			emissive_filename_aiStr : ai.aiString;
 			ai_return = ai.get_material_texture(ai_mat, ai.aiTextureType.EMISSIVE, 0 , &emissive_filename_aiStr, nil,nil,nil ,nil,nil)
 
-			if(ai_return == ai.aiReturn.SUCCESS){
+			if ai_return == ai.aiReturn.SUCCESS {
 
 				emissive_filename := assimp.string_clone_from_ai_string(&emissive_filename_aiStr,context.temp_allocator);
-				emissive_path := filepath.join({relative_filepath_dir, emissive_filename},context.temp_allocator);
-				
+				emissive_path, join_err := os.join_path({relative_filepath_dir, emissive_filename}, context.temp_allocator);
+				assert(join_err == os.ERROR_NONE);
+
 				if(os.is_file(emissive_path)){
 					poly_mat.emissive_tex_filename = strings.clone(emissive_path);
 					poly_mat.has_emissive_tex = true;

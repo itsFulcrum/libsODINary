@@ -145,11 +145,11 @@ matrix_convert :: proc {
 	matrix_convert_4,
 }
 
-matrix_convert_4 :: proc(using ai_matrix: Matrix4x4) -> linalg.Matrix4f32 {
-	return linalg.Matrix4f32{a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4}
+matrix_convert_4 :: proc(ai_mat: Matrix4x4) -> linalg.Matrix4f32 {
+	return linalg.Matrix4f32{ai_mat.a1, ai_mat.a2, ai_mat.a3, ai_mat.a4, ai_mat.b1, ai_mat.b2, ai_mat.b3, ai_mat.b4, ai_mat.c1, ai_mat.c2, ai_mat.c3, ai_mat.c4, ai_mat.d1, ai_mat.d2, ai_mat.d3, ai_mat.d4}
 }
-matrix_convert_3 :: proc(using ai_matrix: Matrix3x3) -> linalg.Matrix3f32 {
-	return linalg.Matrix3f32{a1, a2, a3, b1, b2, b3, c1, c2, c3}
+matrix_convert_3 :: proc(ai_mat: Matrix3x3) -> linalg.Matrix3f32 {
+	return linalg.Matrix3f32{ai_mat.a1, ai_mat.a2, ai_mat.a3, ai_mat.b1, ai_mat.b2, ai_mat.b3, ai_mat.c1, ai_mat.c2, ai_mat.c3}
 }
 
 quaterion_convert :: proc(quat: Quaternion) -> linalg.Quaternionf32 {

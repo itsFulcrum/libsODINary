@@ -3,7 +3,6 @@ package shady
 import "core:log"
 
 import "core:os"
-import "core:path/filepath"
 import "core:strings"
 import "core:fmt"
 
@@ -17,7 +16,8 @@ import "core:fmt"
 // Inside ParseInfo struct the 'out_error_string' will be set with all error mesagges that occured.
 parse_glsl_file :: proc(filename: string, parse_info: ^ParseInfo, allocator := context.allocator) -> (contents : []u8, ok : bool) {
 
-	src_filename_clean := filepath.clean(filename, context.temp_allocator);
+	src_filename_clean, err := os.clean_path(filename, context.temp_allocator);
+	assert(err == nil)
 
 	delete_string(parse_info.error_string);
 	parse_info.error_string = "";
@@ -45,7 +45,8 @@ parse_glsl_file_recursive :: proc(builder : ^[dynamic]u8, filename: string, pars
 
 	parse_ok : bool = true;
 
-	src_filename_clean := filepath.clean(filename, context.temp_allocator);
+	src_filename_clean, alloc_err := os.clean_path(filename, context.temp_allocator);
+	assert(alloc_err == nil);
 
 	file_contents, read_ok := parse_info.read_file_proc(src_filename_clean, allocator);
 	defer if file_contents != nil {
@@ -98,9 +99,9 @@ parse_glsl_file_recursive :: proc(builder : ^[dynamic]u8, filename: string, pars
 		if generate_headerguards{
 
 			// get the base filename: "folder/subfulder/filename.vert.glsl" -> "filename.vert.glsl"
-			src_filename_base : string = filepath.base(src_filename_clean); 
+			src_filename_base : string = os.base(src_filename_clean); 
 			// get the stem of a filename: "filename.vert.glsl" -> "filename"
-			src_filename_stem : string = filepath.short_stem(src_filename_base); 
+			src_filename_stem : string = os.short_stem(src_filename_base); 
 
 			// -> "filename_AUTOGUARD"
 			headerguard_str : string = strings.join({src_filename_stem, "AUTOGUARD"}, "_", context.temp_allocator); 
@@ -226,8 +227,11 @@ parse_glsl_file_recursive :: proc(builder : ^[dynamic]u8, filename: string, pars
 			include_path_relative := string(line_str[first_quote+1:second_quote]);
 
 			// get the filepath to the include file.
-			src_fileanme_parent_dir := filepath.dir(src_filename_clean, context.temp_allocator);
-			full_include_filepath   := filepath.join({src_fileanme_parent_dir, include_path_relative}, context.temp_allocator);
+			//src_fileanme_parent_dir := filepath.dir(src_filename_clean, context.temp_allocator);
+			src_filename_dir, src_filename_name : string = os.split_path(src_filename_clean);
+
+			full_include_filepath, alloc_err := os.join_path({src_filename_dir, include_path_relative}, context.temp_allocator);
+			assert(alloc_err == nil)
 
 			recursive_parse_ok := parse_glsl_file_recursive(builder, full_include_filepath, parse_info, is_top_level_file = false, allocator = allocator);
 
