@@ -4,9 +4,15 @@ import "core:mem"
 import "core:math"
 import "core:math/linalg"
 import "core:strings"
+import "core:os"
 
-destroy_mesh :: proc(mesh : ^MeshData) {
+
+free_mesh :: proc(mesh : ^MeshData, free_mesh_data_itself : bool = true) {
 	
+	if mesh == nil {
+		return;
+	}
+
 	delete_string(mesh.name);
 
 	if mesh.indecies != nil do free(mesh.indecies);
@@ -17,13 +23,25 @@ destroy_mesh :: proc(mesh : ^MeshData) {
 	if mesh.colors_0    != nil do free(mesh.colors_0   );
 	if mesh.colors_1    != nil do free(mesh.colors_1   );
 	if mesh.texcoords_0 != nil do free(mesh.texcoords_0);
-	if mesh.texcoords_1 != nil do free(mesh.texcoords_1);	
+	if mesh.texcoords_1 != nil do free(mesh.texcoords_1);
+
+	if free_mesh_data_itself {
+		free(mesh);
+	}
+}
+free_material ::  proc(mat : ^MaterialData) {
+	delete(mat.name);
+
+	delete(mat.albedo_alpha_tex_filename);
+	delete(mat.normal_tex_filename);
+	delete(mat.orm_tex_filename);
+	delete(mat.emissive_tex_filename);
 }
 
 
-destroy_scene :: proc(scene : ^SceneData){
+free_scene :: proc(scene : ^SceneData){
 
-	if(scene == nil){
+	if scene == nil {
 		return;
 	}
 
@@ -38,13 +56,7 @@ destroy_scene :: proc(scene : ^SceneData){
 
 	// delete materials
 	for &mat in scene.materials {
-
-		delete(mat.name);
-
-		delete(mat.albedo_alpha_tex_filename);
-		delete(mat.normal_tex_filename);
-		delete(mat.orm_tex_filename);
-		delete(mat.emissive_tex_filename);
+		free_material(&mat);
 	}
 
 	delete(scene.materials);
@@ -52,9 +64,11 @@ destroy_scene :: proc(scene : ^SceneData){
 	// delete meshes
 	for &mesh in scene.meshes{
 
-		destroy_mesh(&mesh);
+		free_mesh(&mesh, false);
 	}
 	delete(scene.meshes);
+
+	free(scene);
 }
 
 // Combine all meshes contained in a scene into one. This operation looses all information about material data
@@ -70,11 +84,19 @@ join_scene_meshes :: proc(scene : ^SceneData, apply_transforms: bool = true) -> 
 
 	mesh_data : ^MeshData = new(MeshData, context.allocator);
 	
-	mesh_data.name = strings.join({string("Combined Scene - "), scene.filename},"", context.allocator);
+	if len(scene.filename) > 0 {
 
-	mesh_data.transform_scale 		= [3]f32{1, 1, 1};
-	mesh_data.transform_position   	= [3]f32{0, 0, 0};
-	mesh_data.transform_orientation = quaternion(x = 0.0, y = 0.0, z = 0.0, w = 1.0);
+		_ , file_name := os.split_path(scene.filename);
+
+		name_only := os.short_stem(file_name);
+
+		mesh_data.name = strings.clone(name_only, context.allocator);
+
+	} else {
+		mesh_data.name = strings.clone(string("Unnamed Mesh"), context.allocator);
+	}
+
+	mesh_data.transform = transform_data_get_identity();
 	mesh_data.material_index = -1;
 
 	// It makes our lives quite a bit easier to 
@@ -140,7 +162,7 @@ join_scene_meshes :: proc(scene : ^SceneData, apply_transforms: bool = true) -> 
 	// ass well as multiply normals and tagents with normal matrix.
 	// aabb min/max also need to be recalculated.
 
-	if(apply_transforms){
+	if apply_transforms {
 
 		mesh_offset = 0;
 
@@ -150,7 +172,7 @@ join_scene_meshes :: proc(scene : ^SceneData, apply_transforms: bool = true) -> 
 
 		for &scene_mesh in scene.meshes{
 
-			transform_mat : matrix[4,4]f32 = linalg.matrix4_translate_f32(scene_mesh.transform_position) * linalg.matrix4_from_quaternion_f32(scene_mesh.transform_orientation) * linalg.matrix4_scale_f32(scene_mesh.transform_scale);
+			transform_mat : matrix[4,4]f32 = linalg.matrix4_translate_f32(scene_mesh.transform.position) * linalg.matrix4_from_quaternion_f32(scene_mesh.transform.orientation) * linalg.matrix4_scale_f32(scene_mesh.transform.scale);
 			normal_mat : matrix[4,4]f32 = linalg.matrix4_inverse_transpose_f32(transform_mat);
 
 			for i in 0..<scene_mesh.num_vertecies {
@@ -207,6 +229,7 @@ mesh_data_compute_aabb :: proc(mesh_data : ^MeshData) -> (aabb_min, aabb_max : [
 
 
 // TODO calculate properly
+// @Note: there is an odin implementation of MTkks tangent space algorithim.
 mesh_data_recalculate_tangents :: proc(mesh_data : ^MeshData) {
 
 	assert(mesh_data != nil)
@@ -223,15 +246,17 @@ mesh_data_recalculate_tangents :: proc(mesh_data : ^MeshData) {
 
 	num_verts := mesh_data.num_vertecies;
 
+	any_perpendicular :: proc "contextless" (vec : [3]f32) -> [3]f32 {
+    
+	    if abs(vec.z) < 0.999 {
+	        return linalg.normalize(linalg.cross(vec, [3]f32{0,0,1}));
+	    } 
 
-	// This should only be a fallback way of calculating tangents. we should really make use of uvs..
-	UP : [3]f32 : [3]f32{0.0, 1.0, 0.0};
+	    return linalg.normalize(linalg.cross(vec, [3]f32{0,1,0}));
+	}
 
 	for i in 0..<num_verts {
-
-		tan : [4]f32; 
-		tan.xyz = linalg.cross(mesh_data.normals[i].xyz, UP);
-		tan.w = 1.0;
-		mesh_data.tangents[i] = tan;
+		mesh_data.tangents[i].xyz = any_perpendicular(mesh_data.normals[i].xyz);
+		mesh_data.tangents[i].w   = 1;
 	}
 }

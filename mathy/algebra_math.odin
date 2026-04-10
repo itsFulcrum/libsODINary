@@ -42,6 +42,14 @@ rotate_around_axis_radians :: proc "contextless" (In : [3]f32, Axis : [3]f32,  R
     return rot_mat * In;
 }
 
+any_perpendicular :: proc "contextless" (vec : [3]f32) -> [3]f32 {
+    
+    if abs(vec.z) < 0.999 {
+        return linalg.normalize(linalg.cross(vec, [3]f32{0,0,1}));
+    } 
+
+    return linalg.normalize(linalg.cross(vec, [3]f32{0,1,0}));
+}
 
 // produce a perpective matrix where clip values are in z range 0..1 instead of -1..1 as the procedure in odins math/linalg package does.
 matrix4_perspective_01_f32 :: proc "contextless" (fovy, aspect, near, far: f32, flip_z_axis: bool = true) -> (m: matrix[4,4]f32) #no_bounds_check {

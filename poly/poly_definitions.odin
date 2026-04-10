@@ -17,14 +17,10 @@ SceneData :: struct {
 	filename : string,
 }
 
-
 MeshData :: struct {
 
 	name : string,
 
-	// @Note - fulcrum 
-	// make these multi pointers..
-	// which also means we can do simple mem.copy from assimp probably
 	num_vertecies : u32,
 	positions	: [^][3]f32,
 	normals  	: [^][3]f32,
@@ -37,15 +33,13 @@ MeshData :: struct {
 	num_indecies: u32,
 	indecies: 	[^]u32,
 
-	material_index : i32,
+	material_index : i32, // index into SceneData.materials or -1 if not present.
 
 	aabb_min : [3]f32,
 	aabb_max : [3]f32,
 
 	// transform data
-	transform_position : [3]f32,
-	transform_scale : [3]f32,
-	transform_orientation : quaternion128,
+	transform : TransformData,
 }
 
 
@@ -85,19 +79,29 @@ MaterialData :: struct {
 	render_double_sided: 	bool,
 }
 
-create_default_material :: proc () -> MaterialData {
+material_data_create_default :: proc () -> MaterialData {
 
 	mat : MaterialData;
+
+	material_data_init_default(&mat);
+
+	return mat;
+}
+
+material_data_init_default :: proc(mat : ^MaterialData) {
+	if mat == nil {
+		return;
+	}
 	//mat.name;
 
-	mat.albedo_color = {0.8,0.8,0.8};
-	mat.emissive_color =  {0.0,0.0,0.0};
+	mat.albedo_color 	= {0.8,0.8,0.8};
+	mat.emissive_color 	=  {0.0,0.0,0.0};
 	mat.emissive_strength = 0.0;
-	mat.roughness = 0.2;
-	mat.metallic = 0.0;
-	mat.normal_scale = 1.0;
-	mat.alpha_mode = AlphaBlendModes.Opaque;
-	mat.alpha_value = 1.0;
+	mat.roughness 		= 0.2;
+	mat.metallic 		= 0.0;
+	mat.normal_scale 	= 1.0;
+	mat.alpha_mode 		= AlphaBlendModes.Opaque;
+	mat.alpha_value 	= 1.0;
 
 	//mat.albedo_alpha_tex_filenam;
 	//mat.normal_tex_filename;
@@ -114,7 +118,7 @@ create_default_material :: proc () -> MaterialData {
 
 	mat.render_double_sided  = false;
 
-	return mat;
+	return;
 }
 
 
@@ -125,23 +129,23 @@ LightType :: enum u8 {
 }
 
 LightData :: struct {
-
 	name : string,
 
 	type : LightType,
 	color : [3]f32,
 	intensity : f32,
-	// TODO name these deg or radians.
+
 	spot_inner_cone_angle_radians : f32,
 	spot_outer_cone_angle_radians : f32,
+	
 	// transform data
 	position : [3]f32,
 	orientation : quaternion128,
 }
 
 TransformData :: struct{
-	position : [3]f32,
-	scale : [3]f32,
+	position    : [3]f32,
+	scale       : [3]f32,
 	orientation : quaternion128,
 }
 

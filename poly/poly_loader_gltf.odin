@@ -2,6 +2,7 @@ package poly
 
 import "core:log"
 import "core:strings"
+import "core:fmt"
 import "core:path/filepath"
 import "core:os"
 import "core:mem"
@@ -11,10 +12,11 @@ import "core:math/linalg"
 
 import "vendor:cgltf"
 
+
 // TODOS:
 // - calculate missing normals
-// - calculate tangents properly..
-
+// - calculate tangents properly.. / @Note there is an odin package that can to MikkT calculation..
+// - when loading meshes which were split by material, we need to generate unique mesh names... meh
 
 load_gltf_from_path :: proc(path: string, load_flags : LoadFlags = LOAD_FLAGS_DEFAULT) -> (scene : ^SceneData, ok : bool) {
 		
@@ -62,7 +64,6 @@ load_gltf_from_path :: proc(path: string, load_flags : LoadFlags = LOAD_FLAGS_DE
 		return nil, false;
 	}
 
-
     scene_data : ^SceneData = new(SceneData);
     scene_data.filename = strings.clone(path_clean, context.allocator);
 
@@ -77,18 +78,16 @@ load_cgltf_data_into_poly_scene :: proc(data : ^cgltf.data, scene : ^SceneData, 
 	assert(data != nil);
 	assert(scene != nil);
 
-	// TODO
+	// TODO: stack allocating materials is prob NOT good idea!
 	if .LoadMaterials in load_flags {
 
 		if data.materials != nil {
 
-			for &mat in data.materials {
+			scene.materials = make_dynamic_array_len([dynamic]MaterialData, len(data.materials), context.allocator);
+			for &mat, mat_index in data.materials {
 
-				mat_data , mat_ok := load_cgltf_material(&mat);
-			
-				if mat_ok {
-					append(&scene.materials, mat_data);
-				}
+				material_data_init_default(&scene.materials[mat_index]);
+				load_cgltf_material_to_material_data(&mat, &scene.materials[mat_index]);
 			}
 		}
 	}
@@ -121,9 +120,22 @@ load_cgltf_node_into_poly_scene :: proc(data : ^cgltf.data, scene : ^SceneData, 
 
 		if node.mesh.primitives != nil {
 
-			for &primitve in node.mesh.primitives {
+			for &primitve, index in node.mesh.primitives {
 
-				mesh_data , mesh_data_ok := load_cgltf_primitve(data, &primitve, node_transform, node.mesh.name, load_flags);
+				// @Note:
+				// We want to make sure as best as possible to output unique names.
+				// if we need to split up meshes by material we will give each a index suffix. 
+				// this is not a uniqueness gurantee per se but blender for example takes care that 
+				// mesh names are unique already so adding suffixes to those should normally not cause 
+				// clashes unless u provoke it.
+
+				mesh_name : string = strings.clone_from_cstring(node.mesh.name, context.temp_allocator);
+
+				if index > 0 {
+					mesh_name = fmt.aprintf("{}_{}", mesh_name, index, allocator = context.temp_allocator);
+				}
+
+				mesh_data , mesh_data_ok := load_cgltf_primitve(data, &primitve, node_transform, mesh_name, load_flags);
 				if mesh_data_ok {
 					append(&scene.meshes, mesh_data);
 				}
@@ -132,23 +144,6 @@ load_cgltf_node_into_poly_scene :: proc(data : ^cgltf.data, scene : ^SceneData, 
 	}
 
 }
-
-
-// // return -1 on failure
-// cgltf_find_node_index_by_name :: proc(data : ^cgltf.data, name : cstring) -> int {
-	
-// 	assert(data != nil);
-
-// 	for &node, index in data.nodes {
-		
-// 		if node.name == name {
-
-// 			return index;
-// 		}
-// 	}
-
-// 	return -1;
-// }
 
 @(private="file")
 get_cgltf_node_transforms :: proc(node : ^cgltf.node, flatten_parent_hierarchy : bool) -> TransformData{
@@ -208,12 +203,12 @@ load_cgltf_light :: proc(gltf_light : ^cgltf.light, node_transform : TransformDa
 	return light, true;
 }
 
-// TODO: load materials
+
 // TODO: calc missing normals
 // TODO: calc propper tangents.
 // @Note: mesh_data.name is not set by this function because its not part of the primitve.
 @(private="file")
-load_cgltf_primitve :: proc(data : ^cgltf.data, primitive : ^cgltf.primitive, node_transform : TransformData, mesh_name : cstring, load_flags : LoadFlags) -> (mesh_data : MeshData, ok : bool) {
+load_cgltf_primitve :: proc(data : ^cgltf.data, primitive : ^cgltf.primitive, node_transform : TransformData, mesh_name : string, load_flags : LoadFlags) -> (mesh_data : MeshData, ok : bool) {
 
 	assert(primitive != nil)
 
@@ -234,8 +229,6 @@ load_cgltf_primitve :: proc(data : ^cgltf.data, primitive : ^cgltf.primitive, no
 			// This should work as long as all material in the data.materials array are loaded.
 			index := cgltf.material_index(data, primitive.material);
 			mesh_data.material_index = cast(i32)index;
-		} else {
-
 		}
 	}
 
@@ -414,7 +407,7 @@ load_cgltf_primitve :: proc(data : ^cgltf.data, primitive : ^cgltf.primitive, no
 		// At the minimum we need position data otherwise nothing makes sense..
 		if num_positions == -1 {
 			if log_errors do log.warnf("Poly: cgltf did not load any position attibute, skipping mesh");
-			destroy_mesh(&mesh_data);
+			free_mesh(&mesh_data);
 			return;
 		}
 
@@ -440,11 +433,8 @@ load_cgltf_primitve :: proc(data : ^cgltf.data, primitive : ^cgltf.primitive, no
 
 	} // end load attributes
 
-
-	mesh_data.name = strings.clone_from_cstring(mesh_name, context.allocator);
-	mesh_data.transform_position 	= node_transform.position;
-	mesh_data.transform_scale 		= node_transform.scale;
-	mesh_data.transform_orientation = node_transform.orientation;
+	mesh_data.name = strings.clone(mesh_name, context.allocator);
+	mesh_data.transform = node_transform;
 
 	mesh_data.aabb_min, mesh_data.aabb_max = mesh_data_compute_aabb(&mesh_data);
 
@@ -452,12 +442,17 @@ load_cgltf_primitve :: proc(data : ^cgltf.data, primitive : ^cgltf.primitive, no
 	return mesh_data, ok;
 }
 
+
 @(private="file")
-load_cgltf_material :: proc(gltf_mat : ^cgltf.material) -> (mat : MaterialData, ok : bool){
+load_cgltf_material_to_material_data :: proc(gltf_mat : ^cgltf.material, mat : ^MaterialData) {
+	
+	if gltf_mat == nil {
+		return;
+	}
 
-	assert(gltf_mat != nil)
-
-	mat = create_default_material();
+	if mat == nil {
+		return;
+	}
 
 	// MaterialData :: struct {
 
@@ -522,7 +517,4 @@ load_cgltf_material :: proc(gltf_mat : ^cgltf.material) -> (mat : MaterialData, 
 	}
 
 	mat.name = strings.clone_from_cstring(gltf_mat.name, context.allocator);
-
-	ok = true;
-	return mat, ok;
 }

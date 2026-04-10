@@ -3,21 +3,12 @@ package harmony
 import "core:math"
 import "core:math/linalg"
 
-sh_cartesian_to_spherical :: proc (dir : [3]f32) -> (theta : f32, phi : f32) {
-	
-	length_xy : f32 = linalg.length( dir.xy );
-    theta = linalg.atan2( length_xy, dir.z );
-    phi   = linalg.atan2( dir.y , dir.x );
-
-    return theta, phi;
-}
-
 // Evaluate an Associated Legendre Polynomial P(l,m,x) at x
-eval_legendere_polynomial :: proc(l, m : i32, x : f64) -> f64 {
+sh_eval_legendere_polynomial :: proc(l, m : i32, x : f64) -> f64 {
 
 	pmm: f64  = 1.0;
 
-	if(m > 0) {
+	if m > 0 {
 		 somx2: f64 = linalg.sqrt((1.0-x)*(1.0+x));
 		 fact : f64 = 1.0;
 		 
@@ -26,13 +17,14 @@ eval_legendere_polynomial :: proc(l, m : i32, x : f64) -> f64 {
 		 	fact += 2.0;
 		 }
 	}
-	if(l==m){
+
+	if l == m {
 		return pmm;
 	} 
 
 	pmmp1 : f64 = x * (2.0*cast(f64)m+1.0) * pmm;
 
-	if (l==m+1) {
+	if l == m+1 {
 		return pmmp1;
 	}	
 	
@@ -44,29 +36,25 @@ eval_legendere_polynomial :: proc(l, m : i32, x : f64) -> f64 {
 		pmm = pmmp1;
 		pmmp1 = pll;
 	}
+
 	return pll;
 }
 
-// fast type version of 'eval_legendere_polynomial'
-sh_p :: proc(l,m : i32, x : f64) -> f64 {
- 	return #force_inline eval_legendere_polynomial(l,m, x);
-}
+sh_p :: sh_eval_legendere_polynomial
 
 // renormalisation constant for SH function
-sh_k :: proc( l, m: i32) -> f64 {
-	tmp : f64 = ((2.0* cast(f64)l + 1.0) * cast(f64)math.factorial( cast(int)(l-m) )) / (4.0 * math.PI * cast(f64)math.factorial( cast(int)(l+m) ));
-	return linalg.sqrt(tmp);
+sh_k :: proc(l, m: i32) -> f64 {
+	numerator : f64 = 2.0 * cast(f64)l + 1.0) * cast(f64)math.factorial(int(l-m));
+	denom : f64 = 4.0 * math.PI * cast(f64)math.factorial(int(l+m))
+	return linalg.sqrt(numerator / denom);
 }
 
-
-
 // get sh basis function for given l,m and spherical coordinates by doing slow polynomial evaluation.
-estimate_sh :: proc(l,m: i32, theta, phi : f64) -> f64 {
+sh_get_basis :: proc(l,m: i32, theta, phi : f64) -> f64 {
  	
- 	if(m==0) {
+ 	if m == 0 {
  		return sh_k( l , 0) * sh_p( l, m, linalg.cos(theta) );
- 	}
- 	else if (m>0) {
+ 	} else if m > 0 {
 
  		return math.SQRT_TWO * sh_k(l,m) * linalg.cos( cast(f64)m *phi) * sh_p(l,m,linalg.cos(theta));
  	}
@@ -77,7 +65,7 @@ estimate_sh :: proc(l,m: i32, theta, phi : f64) -> f64 {
 
 // Get sh basis function for given l,m and cartesian direcition vector (normalized)
 // Uses faster precalculated (and slightly less accurate) math
-estimate_sh_fast :: proc ( l,m: i32, dir : [3]f32 ) -> f32{
+sh_get_basis_fast :: proc ( l,m: i32, dir : [3]f32 ) -> f32{
 
 	x  : f32 = dir.x;
     y  : f32 = dir.y;
@@ -86,21 +74,21 @@ estimate_sh_fast :: proc ( l,m: i32, dir : [3]f32 ) -> f32{
     yy : f32 = y*y;
     zz : f32 = z*z;
 
-    if(l == 0){
+    if l == 0 {
         // l0 = 1 coef
         return  0.282095;
     }
-    else if( l == 1){
+    else if l == 1 {
     	// l1 = 4 coef
-        switch (m) {
+        switch m {
 			case -1: return -0.488603 * y;
 			case  0: return  0.488603 * z;
 			case  1: return -0.488603 * x;
 		}
     }
-    else if( l == 2) {
+    else if l == 2 {
     	// l2 = 9 coef
-        switch (m) {
+        switch m {
 	        case -2: return  1.092548 * x * y;
 			case -1: return -1.092548 * y * z;
 			case  0: return  0.315392 * (-x * x - yy + 2.0*zz);
@@ -223,5 +211,15 @@ estimate_sh_fast :: proc ( l,m: i32, dir : [3]f32 ) -> f32{
     // do it the slow way
     theta , phi := #force_inline sh_cartesian_to_spherical(dir);
 
-    return cast(f32)estimate_sh(l, m,cast(f64)theta, cast(f64)phi);
+    return cast(f32)sh_get_basis(l, m,cast(f64)theta, cast(f64)phi);
+}
+
+
+sh_cartesian_to_spherical :: proc "contextless" (dir : [3]f32) -> (theta : f32, phi : f32) {
+	
+	length_xy : f32 = linalg.length( dir.xy );
+    theta = linalg.atan2( length_xy, dir.z );
+    phi   = linalg.atan2( dir.y , dir.x );
+
+    return theta, phi;
 }

@@ -138,7 +138,7 @@ load_assimp_materials_to_poly_scene :: proc(ai_scene: ^ai.aiScene, poly_scene: ^
 		ai_mat : ^ai.aiMaterial = ai_scene.mMaterials[i];
 		
 
-		poly_mat : MaterialData = create_default_material();
+		poly_mat : MaterialData = material_data_create_default();
 
 
 		ai_return : ai.aiReturn = ai.aiReturn.SUCCESS;
@@ -558,9 +558,9 @@ load_assimp_nodes_to_poly_scene_recursive :: proc(ai_scene: ^ai.aiScene, node: ^
 		assimp_transform_matrix: ai.aiMatrix4x4 = node.mTransformation;
 		
 		ai_orientation : ai.aiQuaternion;
-		ai.decompose_matrix(&assimp_transform_matrix, &mesh_data.transform_scale, &ai_orientation, &mesh_data.transform_position);
+		ai.decompose_matrix(&assimp_transform_matrix, &mesh_data.transform.scale, &ai_orientation, &mesh_data.transform.position);
 
-		mesh_data.transform_orientation = assimp.quaterion_convert(ai_orientation);
+		mesh_data.transform.orientation = assimp.quaterion_convert(ai_orientation);
 
 		//log.debugf("MeshData: Pos {}", mesh_data.transform_position)
 		//log.debugf("MeshData: Scale {}", mesh_data.transform_scale)

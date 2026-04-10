@@ -12,6 +12,32 @@ cast_to_array_f32x4 :: #force_inline proc "contextless" (a: #simd[4]f32) -> (vec
 	return transmute([4]f32)a;
 }
 
+unaligned_load_f32x4 :: #force_inline proc "contextless" (ptr : ^[4]f32) -> #simd[4]f32 {
+	return intrin.unaligned_load(cast(^#simd[4]f32)ptr);
+}
+
+from_scalar :: proc {
+	from_scalar_f32x4,
+	from_scalar_i32x4,
+	from_scalar_u32x4,
+}
+
+from_scalar_f32x4 :: #force_inline proc "contextless" (v : f32) -> #simd[4]f32 {
+	return #simd[4]f32{v,v,v,v};
+}
+
+from_scalar_i32x4 :: #force_inline proc "contextless" (v : i32) -> #simd[4]i32 {
+	return #simd[4]i32{v,v,v,v};
+}
+
+from_scalar_u32x4 :: #force_inline proc "contextless" (v : u32) -> #simd[4]u32 {
+	return #simd[4]u32{v,v,v,v};
+}
+
+from_vec3_f32 :: #force_inline proc "contextless" (v : [3]f32, last : f32 = 0.0) -> #simd[4]f32 {
+	return #simd[4]f32{v.x,v.y,v.z,last};
+}
+
 
 // Simd Cross product of two f32 vectors which are expected to be in the registers 0,1,2. 
 // Last Register is ignored and may return as garbage.
@@ -44,17 +70,25 @@ cross_f32x4 :: proc "contextless" (a : #simd[4]f32, b : #simd[4]f32) -> #simd[4]
     return s.sub(tmp3,tmp0);
 }
 
-// Assumes that last component of one of the vectors is 0
-dot_last_is_0_f32x4 :: #force_inline proc "contextless" (a : #simd[4]f32, b : #simd[4]f32) -> f32 {
 
+dot_last_is_0_f32x4 :: dot_unsafe // TODO remove this and keep dot_unsafe
+
+// Unsage because assumes that last lane of one of the vectors is 0. If in doubt use masked_dot() instead.
+dot_unsafe :: #force_inline proc "contextless" (a : #simd[4]f32, b : #simd[4]f32) -> f32 {
 	return intrin.simd_reduce_add_ordered(s.mul(a,b));
 }
 
-// Dot product of two 3D (xyz) vectors. Last element is ignored.
+// Dot product of two 3D (xyz) vectors. Last lane is ignored.
 dot_f32x4 :: #force_inline proc "contextless" (a : #simd[4]f32, b : #simd[4]f32) -> f32 {
 	
 	// Ensure that at least for one of the two inputs, last value is 0. because we asume that its should represent a 3D vector.
 	_b: #simd[4]f32 = s.select(#simd[4]int{ 1, 1, 1, 0}, b, ZERO_f32x4);
+	return intrin.simd_reduce_add_ordered(s.mul(a,_b));
+}
+
+// Dot product of two vectors but mask out lanes
+masked_dot :: #force_inline proc "contextless" (a : #simd[4]f32, b : #simd[4]f32, mask : #simd[4]int = #simd[4]int{ 1, 1, 1, 0}) -> f32 {
+	_b: #simd[4]f32 = s.select(mask, b, ZERO_f32x4);
 	return intrin.simd_reduce_add_ordered(s.mul(a,_b));
 }
 
