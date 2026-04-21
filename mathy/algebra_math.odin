@@ -51,18 +51,11 @@ any_perpendicular :: proc "contextless" (vec : [3]f32) -> [3]f32 {
     return linalg.normalize(linalg.cross(vec, [3]f32{0,1,0}));
 }
 
-// produce a perpective matrix where clip values are in z range 0..1 instead of -1..1 as the procedure in odins math/linalg package does.
-matrix4_perspective_01_f32 :: proc "contextless" (fovy, aspect, near, far: f32, flip_z_axis: bool = true) -> (m: matrix[4,4]f32) #no_bounds_check {
-    tan_half_fovy := math.tan(0.5 * fovy);
-    m[0, 0] = 1 / (aspect*tan_half_fovy);
-    m[1, 1] = 1 / (tan_half_fovy);
-    m[2, 2] = far / (far - near);
-    m[3, 2] = 1;
-    m[2, 3] = - ( far * near / (far - near) );
-
-    if flip_z_axis {
-        m[2] = -m[2];
+vec2_rotate_angle :: proc "contextless" (vec : [2]f32, angle_radians : f32) -> [2]f32 {
+    c : f32 = linalg.cos(angle_radians);
+    s : f32 = linalg.sin(angle_radians);
+    return [2]f32{
+        vec.x * c - vec.y * s,
+        vec.x * s + vec.y * c
     }
-
-    return;
 }

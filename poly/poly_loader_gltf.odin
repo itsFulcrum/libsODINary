@@ -413,23 +413,26 @@ load_cgltf_primitve :: proc(data : ^cgltf.data, primitive : ^cgltf.primitive, no
 
 		mesh_data.num_vertecies = cast(u32)num_positions;
 		
-		if num_normals == -1 {
-			// TODO: calculate normals
+		// TODO: calculate proper normals
+		if num_normals == -1 && .CalcMissingNormals in load_flags {
+			mesh_data_recalculate_normals(&mesh_data); // only fallback atm. Implement Properly..
+			num_normals = cast(int)mesh_data.num_vertecies;
 		}
 
-		if num_tangents == -1 {
-			// TODO: calculate tangents.
-			mesh_data_recalculate_tangents(&mesh_data); // this is not properly implemented yet.
+		// TODO: calculate proper tangents.
+		if num_tangents == -1 && .CalcMissingTangents in load_flags {
+			mesh_data_recalculate_tangents(&mesh_data); // only fallback atm. Implement Properly..
+			num_tangents = cast(int)mesh_data.num_vertecies;
 		}
 
 		// Validate that all attibutes have the same number of vertecies..
 
-		if num_normals     != -1 do assert(num_normals == num_positions);
-		if num_tangents    != -1 do assert(num_tangents == num_positions);
+		if num_normals     != -1 do assert(num_normals     == num_positions);
+		if num_tangents    != -1 do assert(num_tangents    == num_positions);
 		if num_texcoords_0 != -1 do assert(num_texcoords_0 == num_positions);
 		if num_texcoords_1 != -1 do	assert(num_texcoords_1 == num_positions);
-		if num_colors_0    != -1 do assert(num_colors_0 == num_positions);
-		if num_colors_1    != -1 do assert(num_colors_1 == num_positions);		
+		if num_colors_0    != -1 do assert(num_colors_0    == num_positions);
+		if num_colors_1    != -1 do assert(num_colors_1    == num_positions);		
 
 	} // end load attributes
 

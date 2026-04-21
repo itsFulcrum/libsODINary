@@ -237,14 +237,14 @@ mesh_data_recalculate_tangents :: proc(mesh_data : ^MeshData) {
 	assert(mesh_data.num_vertecies > 0)
 
 	// We need at least normals..
-	assert(mesh_data.normals != nil);
+	if mesh_data.normals == nil {
+		mesh_data_recalculate_normals(mesh_data)
+	}
 
 
 	if mesh_data.tangents == nil {
 		mesh_data.tangents = make_multi_pointer([^][4]f32, cast(int)mesh_data.num_vertecies, context.allocator);
 	}
-
-	num_verts := mesh_data.num_vertecies;
 
 	any_perpendicular :: proc "contextless" (vec : [3]f32) -> [3]f32 {
     
@@ -255,8 +255,38 @@ mesh_data_recalculate_tangents :: proc(mesh_data : ^MeshData) {
 	    return linalg.normalize(linalg.cross(vec, [3]f32{0,1,0}));
 	}
 
-	for i in 0..<num_verts {
+	for i in 0..<mesh_data.num_vertecies {
 		mesh_data.tangents[i].xyz = any_perpendicular(mesh_data.normals[i].xyz);
 		mesh_data.tangents[i].w   = 1;
+	}
+}
+
+
+// Recalculate Normals for a mesh. TODO: Implement proper smooth/hardedge normals.
+// Currently only a fallback implementation that produces some valid normals but not actually 
+mesh_data_recalculate_normals :: proc(mesh_data : ^MeshData){
+
+	assert(mesh_data != nil)
+	assert(mesh_data.num_vertecies > 0)
+	assert(mesh_data.positions != nil)
+
+
+	if mesh_data.normals == nil {
+		mesh_data.normals = make_multi_pointer([^][3]f32, mesh_data.num_vertecies, context.allocator);
+	} 
+
+
+	for index in 0..<mesh_data.num_vertecies {
+
+		// as fallback we can maybe use normalized position as normal.
+		// better than nothing.
+		N : [3]f32 = mesh_data.positions[index];
+
+		if abs(linalg.dot(N, N)) < 0.00001 {
+			// Fallback to up vector if length is very small	
+			mesh_data.normals[index] = [3]f32{0.0, 1.0, 0.0}; 
+		} else {
+			mesh_data.normals[index] = linalg.normalize(N);
+		}
 	}
 }

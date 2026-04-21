@@ -1,5 +1,8 @@
 
 
+# file extentions
+*.zip
+
 # Shady Ignores
 shady/glslang/lib/release/NotNeededYet/
 shady/glslang/lib/debug/

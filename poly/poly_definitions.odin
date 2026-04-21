@@ -7,6 +7,8 @@ LoadFlag :: enum {
 	LoadMaterials = 0,
 	LoadLights,
 	LogErrors,
+	CalcMissingNormals, // Calculate normals if they are missing in the file. TODO: Only Fallback implementation atm.
+	CalcMissingTangents, // Calculate tangents if they are missing in the file. Will Force calculation of missing normals. TODO: Only Fallback implementation atm.
 }
 
 SceneData :: struct {
