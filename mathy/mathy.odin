@@ -26,3 +26,4 @@ noise_hash_1D_01 :: proc(  x :f32 ) -> f32 {
     // quartic polynomial
     return s*f*(f-1.0)*((16.0*k-4.0)*f*(f-1.0)-1.0);
 }
+

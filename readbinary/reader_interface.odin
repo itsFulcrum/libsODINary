@@ -29,11 +29,13 @@ remaining_bytes :: proc {
 	mr_remaining_bytes,
 }
 
+// Advance forward by amount of bytes from the current postion
 advance :: proc {
 	fr_advance,
 	mr_advance,
 }
 
+// Jump to a byte positon in the reader.
 seek :: proc {
 	fr_seek,
 	mr_seek,
@@ -46,25 +48,25 @@ has_enough_remaining_bytes :: proc {
 
 consume_mem_copy :: proc {
 	fr_consume_mem_copy,
-	mr_consume_mem_copy
+	mr_consume_mem_copy,
 }
 
 consume_copy_type :: proc {
 	fr_consume_copy_type,
-	mr_consume_copy_type
+	mr_consume_copy_type,
 }
 
 consume_make_type :: proc {
 	fr_consume_make_type,
-	mr_consume_make_type
+	mr_consume_make_type,
 }
 
 consume_make_string :: proc {
 	fr_consume_make_string,
-	mr_consume_make_string
+	mr_consume_make_string,
 }
 
 consume_make_slice :: proc {
 	fr_consume_make_slice,
-	mr_consume_make_slice
+	mr_consume_make_slice,
 }

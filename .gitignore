@@ -9,3 +9,7 @@ shady/glslang/lib/debug/
 
 # Poly Ignores 
 poly/assimp/lib/debug/
+
+
+# Tiny VDB 
+VdbTiny/src/
