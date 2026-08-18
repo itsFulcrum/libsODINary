@@ -2,7 +2,7 @@ package geometry
 
 import "core:math/linalg"
 
-// Right Handed coordinate system
+// Right Handed (+Y up,-Z forward) coordinate system
 TRANSFORM_WORLD_FORWARD ::	[3]f32{0.0, 0.0, -1.0};
 TRANSFORM_WORLD_RIGHT   :: 	[3]f32{1.0, 0.0,  0.0};
 TRANSFORM_WORLD_UP      ::	[3]f32{0.0, 1.0,  0.0};
