@@ -1,0 +1,18 @@
+body {
+	background: #202020;
+	color: #eeeeee;
+	font-family: sans-serif;
+	max-width: 800px;
+	margin: 40px auto;
+}
+
+button {
+	padding: 10px 20px;
+}
+
+#image {
+	position: fixed;
+	left: 100px;
+	top: 100px;
+    width: 200px;
+}

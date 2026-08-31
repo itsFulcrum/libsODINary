@@ -1,0 +1,85 @@
+{
+	"folders":
+	[
+		{
+			"path": ".",
+			/*"working_directory": "C:\\Users\\fulcrum\\Documents\\Projects\\ODIN\\TimeDrift",*/
+		},
+		{
+			"path": "C:\\Users\\janis\\Documents\\cppProjects\\IridescentEngine",
+		},
+		{
+			"path": "C:\\Users\\janis\\Documents\\cppProjects\\libsODINary",
+		},
+		{
+			"path": "C:\\Users\\janis\\Documents\\Programms\\OdinLang\\vendor\\sdl3",
+		},
+		{
+			"path": "C:\\Users\\janis\\Documents\\cppProjects\\TimeDrift"
+		},
+	],
+	"build_systems": 
+	[
+		{
+			"name": "td_build_release",
+			"working_dir": "$working_directory",
+			"target": "terminus_exec",
+			"show_in_panel": true,
+			"auto_close": false,
+			"timeit": true,
+			"focus": true,
+			"shell_cmd": "odin build main.odin -file -out:Vulky.exe -o:speed -collection:odinary=..\\..\\libsODINary",
+		},
+		{
+			"name": "td_build_debug",
+			"working_dir": "$working_directory",
+			"target": "terminus_exec",
+			"show_in_panel": true,
+			"auto_close": false,
+			"timeit": true,
+			"focus": true,
+			"shell_cmd": "odin build main.odin -file -out:Vulky.exe -debug -collection:odinary=..\\..\\libsODINary",
+		},
+		{
+			"name": "td_run_release",
+			"working_dir": "$working_directory",
+			"target": "terminus_exec",
+			"show_in_panel": true,
+			"auto_close": false,
+			"timeit": true,
+			"focus": true,
+			"shell_cmd": "odin run main.odin -file -out:Vulky.exe -o:speed -collection:odinary=..\\..\\libsODINary",
+		},
+		{
+			"name": "td_run_debug",
+			"working_dir": "$working_directory",
+			"target": "terminus_exec",
+			"show_in_panel": true,
+			"auto_close": false,
+			"timeit": true,
+			"focus": true,
+			"shell_cmd": "odin run main.odin -file -out:Vulky.exe -debug -collection:odinary=..\\..\\libsODINary",
+		},
+		{
+			"name": "RadDebugger",
+			"working_dir": "$working_directory",
+			"target": "terminus_exec",
+			"show_in_panel": true,
+			"auto_close": false,
+			"timeit": true,
+			"focus": true,
+			"shell_cmd": "odin build main.odin -file -out:Vulky.exe -debug -collection:odinary=..\\libsODINary && (if exist Vulky.rdi del Vulky.rdi) && raddbg Vulky.exe",
+		},
+	],
+
+	"settings":
+	{
+		"LSP":
+		{
+			"odin":
+			{
+				"enabled": true,
+			},
+		},
+	},
+}

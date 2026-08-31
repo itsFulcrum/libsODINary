@@ -57,6 +57,13 @@ aabb_to_transform_matrix :: proc "contextless" (aabb : AABB) -> matrix[4,4]f32 {
 	};
 }
 
+aabb_get_center_extent :: proc "contextless" (aabb : AABB) -> (center : [3]f32, extent : [3]f32){
+
+	extent4 := (aabb.max - aabb.min) * [4]f32{0.5,0.5,0.5,0.0};
+	center4 := aabb.min + extent4;
+	return center4.xyz, extent4.xyz;
+}
+
 aabb_overlaps_aabb :: proc "contextless" (a, b : AABB) -> bool {
 	
 	// @Note: can prob do simd with per lane compare and reduce bit AND's.

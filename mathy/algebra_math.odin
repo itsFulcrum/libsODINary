@@ -61,9 +61,10 @@ vec2_rotate_angle :: proc "contextless" (vec : [2]f32, angle_radians : f32) -> [
 }
 
 
-// Vulkan style projection matrix that maps z into range 0..1 instead of OpenGl style -1..1
+// Vulkan style perspective projection matrix that maps z into range 0..1 instead of OpenGl style -1..1
 @(require_results)
-matrix4_perspective_01_f32 :: proc "contextless" (fovy, aspect, near, far: f32, flip_z_axis := true) -> (m: matrix[4,4]f32) #no_bounds_check {
+matrix4_perspective_z0to1_f32 :: proc "contextless" (fovy, aspect, near, far: f32, flip_z_axis : bool = true, reversed_z_buffer : bool = false) -> (m: matrix[4,4]f32) #no_bounds_check {
+   
     tan_half_fovy := math.tan(0.5 * fovy)
     m[0, 0] = 1 / (aspect*tan_half_fovy)
     m[1, 1] = 1 / (tan_half_fovy)
@@ -71,15 +72,41 @@ matrix4_perspective_01_f32 :: proc "contextless" (fovy, aspect, near, far: f32, 
 
     n, f := near, far;
 
-    reversed_z_buffer :: true
     if reversed_z_buffer {
-        n, f = f, n;
+        n, f = far, near;
     }
 
     m[2, 2] = f / (f - n)
     m[3, 2] = +1
     m[2, 3] = -1 * f * n / (f - n)
     
+
+    if flip_z_axis {
+        m[2] = -m[2]
+    }
+
+    return
+}
+
+// Vulkan style orthographic projection matrix that maps z into range 0..1 instead of OpenGl style -1..1
+@(require_results)
+matrix_orthographic_z0to1_f32 :: proc "contextless" (left, right, bottom, top, near_plane, far_plane: f32, flip_z_axis := true, reversed_z_buffer : bool = false) -> (m: matrix[4,4]f32) #no_bounds_check {
+    
+
+    near, far := near_plane, far_plane;
+
+    if reversed_z_buffer {
+        near, far = far_plane, near_plane;
+    }
+
+    m[0, 0] = +2 / (right - left)
+    m[1, 1] = +2 / (top - bottom)
+    m[2, 2] = +1 / (far - near)
+    
+    m[0, 3] = -(right + left)   / (right - left)
+    m[1, 3] = -(top   + bottom) / (top - bottom)
+    m[2, 3] = -(near) / (far- near)
+    m[3, 3] = 1
 
     if flip_z_axis {
         m[2] = -m[2]

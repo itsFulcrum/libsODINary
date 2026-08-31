@@ -5,10 +5,19 @@ import "core:os"
 import "core:strings"
 import "core:time"
 
+import "base:runtime"
+
 FileWatcherData :: struct{
 	// member variables, read only
+	allocator : runtime.Allocator,
 	_filepaths: [dynamic]string,
 	_last_write_times: [dynamic]time.Time,
+}
+
+init_with_allocator :: proc(file_watcher_data: ^FileWatcherData, alloc := context.allocator){
+	file_watcher_data.allocator = alloc;
+	file_watcher_data._filepaths = make_dynamic_array([dynamic]string, allocator = alloc);
+	file_watcher_data._last_write_times = make_dynamic_array([dynamic]time.Time, allocator = alloc);
 }
 
 add_file :: proc(file_watcher_data: ^FileWatcherData, filepath: string) {
@@ -35,7 +44,7 @@ add_file :: proc(file_watcher_data: ^FileWatcherData, filepath: string) {
 		return;
 	}
 
-	append(&file_watcher_data._filepaths, strings.clone(filepath));
+	append(&file_watcher_data._filepaths, strings.clone(filepath, allocator = file_watcher_data.allocator));
 	append(&file_watcher_data._last_write_times, last_write);
 }
 
@@ -66,7 +75,7 @@ add_files :: proc(file_watcher_data: ^FileWatcherData, filepaths: []string){
 			continue;
 		}
 
-		append(&file_watcher_data._filepaths, strings.clone(path));
+		append(&file_watcher_data._filepaths, strings.clone(path, file_watcher_data.allocator));
 		append(&file_watcher_data._last_write_times, last_write);
 	}
 }
