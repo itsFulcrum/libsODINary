@@ -2,7 +2,7 @@ package geometry
 
 import "core:mem"
 import "core:math"
-import "core:math/linalg"
+// import "core:math/linalg"
 
 // implementation mostly follows this article: 
 // https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/
@@ -60,19 +60,19 @@ BvhSplitBin :: struct {
 bvh_release_bvh_info :: proc(info : ^BvhInfo){
 	
 	if info == nil {
-		return;
+		return
 	}
 
-	delete(info.indecies);
-	info.indecies = nil;
-	delete(info.nodes);
-	info.nodes = nil;
+	delete(info.indecies)
+	info.indecies = nil
+	delete(info.nodes)
+	info.nodes = nil
 }
 
 bvh_reset_all_bins :: proc(bins : []BvhSplitBin) {
 	for &bin in bins {
-		bin.aabb = aabb_create_inverse_infinite();
-		bin.count = 0;
+		bin.aabb = aabb_create_inverse_infinite()
+		bin.count = 0
 	}
 }
 
@@ -80,72 +80,72 @@ bvh_reset_all_bins :: proc(bins : []BvhSplitBin) {
 // Max tree depth can be used to limit tree depth. Value of 0 means tree depth is unbounded.
 bvh_build_bottom_level :: proc(vertex_buf : [^]byte, vertex_byte_size : uint, indecies : [^]u32, num_indecies : uint, num_split_planes : u32 = 0, max_tree_depth : u32 = 0) -> BvhInfo {
 	
-	info : BvhBuildInfo;
-	info.vertex_buf 	  = vertex_buf;
-	info.vertex_byte_size = vertex_byte_size;
-	info.max_tree_depth   = max_tree_depth;
+	info : BvhBuildInfo
+	info.vertex_buf 	  = vertex_buf
+	info.vertex_byte_size = vertex_byte_size
+	info.max_tree_depth   = max_tree_depth
 
-	info.num_split_planes = num_split_planes;
+	info.num_split_planes = num_split_planes
 	when BVH_CONFIG_USE_BINNING {
 		// Allocate temporary storage for bin data.
 		
 		// @Note:
 		// if num_split_planes <= 1 we instead do a high quality tree where we evaluate every possible split plane gathered from primitve centers.
-		use_binning : bool = num_split_planes > 1;
+		use_binning : bool = num_split_planes > 1
 		if use_binning {
-			num_intervals : u32 = num_split_planes + 1;
-			info.split_bins 			 = make_slice([]BvhSplitBin, cast(int)(num_intervals), context.temp_allocator);
+			num_intervals : u32 = num_split_planes + 1
+			info.split_bins 			 = make_slice([]BvhSplitBin, cast(int)(num_intervals), context.temp_allocator)
 
-			info.split_plane_area_left   = make_slice([]f32, cast(int)(num_split_planes), context.temp_allocator);
-			info.split_plane_area_right  = make_slice([]f32, cast(int)(num_split_planes), context.temp_allocator);
-			info.split_plane_count_left  = make_slice([]u32, cast(int)(num_split_planes), context.temp_allocator);
-			info.split_plane_count_right = make_slice([]u32, cast(int)(num_split_planes), context.temp_allocator);
+			info.split_plane_area_left   = make_slice([]f32, cast(int)(num_split_planes), context.temp_allocator)
+			info.split_plane_area_right  = make_slice([]f32, cast(int)(num_split_planes), context.temp_allocator)
+			info.split_plane_count_left  = make_slice([]u32, cast(int)(num_split_planes), context.temp_allocator)
+			info.split_plane_count_right = make_slice([]u32, cast(int)(num_split_planes), context.temp_allocator)
 		}
 	}
 
-	num_expected_triangles : uint = num_indecies / 3;
+	num_expected_triangles : uint = num_indecies / 3
 	
 	// Make copy of indecies which we will mutate throughout building the bvh
-	info.indecies  = make_slice([]u32, cast(int)num_indecies, context.allocator);
-	mem.copy(&info.indecies[0], &indecies[0], cast(int)num_indecies * size_of(u32));	
+	info.indecies  = make_slice([]u32, cast(int)num_indecies, context.allocator)
+	mem.copy(&info.indecies[0], &indecies[0], cast(int)num_indecies * size_of(u32))	
 
 	// Precompute a center postion for each triangle which we will refer to many times during construction.
-	info.tri_centroids = make_slice([][3]f32, cast(int)num_expected_triangles, context.allocator);
-	defer delete_slice(info.tri_centroids);
+	info.tri_centroids = make_slice([][3]f32, cast(int)num_expected_triangles, context.allocator)
+	defer delete_slice(info.tri_centroids)
 
 	root_aabb : AABB = aabb_create_inverse_infinite()
-	triangle_index : uint = 0; 
+	triangle_index : uint = 0 
 	for i : uint = 0; i < num_indecies; i += 3 {
-		tri : [3][3]f32 = bvh_get_triangle_positions(&info, triangle_index);
-		info.tri_centroids[triangle_index] = (tri[0] + tri[1] + tri[2]) * 0.333333;
-		triangle_index += 1;
+		tri : [3][3]f32 = bvh_get_triangle_positions(&info, triangle_index)
+		info.tri_centroids[triangle_index] = (tri[0] + tri[1] + tri[2]) * 0.333333
+		triangle_index += 1
 		
-		aabb_grow_by_point(&root_aabb, tri[0]);
-		aabb_grow_by_point(&root_aabb, tri[1]);
-		aabb_grow_by_point(&root_aabb, tri[2]);
+		aabb_grow_by_point(&root_aabb, tri[0])
+		aabb_grow_by_point(&root_aabb, tri[1])
+		aabb_grow_by_point(&root_aabb, tri[2])
 	}
 
-	num_triangles : uint = triangle_index;
+	num_triangles : uint = triangle_index
 
 	// If this does not hold there is likely a problem with the index buffer or it contaions non triangle faces
-	assert(num_expected_triangles == num_triangles);
+	assert(num_expected_triangles == num_triangles)
 
 	// @Note: technically this would need a '-1' here but we skip one node after root to align child nodes to 64 cache line boundries
-	max_node_count : uint = num_triangles * 2;
-	info.nodes = make_slice([]BvhNode, cast(int)max_node_count, context.allocator);
+	max_node_count : uint = num_triangles * 2
+	info.nodes = make_slice([]BvhNode, cast(int)max_node_count, context.allocator)
 
 	
 	// Initialize root with all triangles and no child nodes.	
-	root : ^BvhNode = &info.nodes[0];
-	root.left_first = 0;
-	root.count  = cast(u32)num_triangles;
-	root.aabb_min = root_aabb.min.xyz;
-	root.aabb_max = root_aabb.max.xyz;
+	root : ^BvhNode = &info.nodes[0]
+	root.left_first = 0
+	root.count  = cast(u32)num_triangles
+	root.aabb_min = root_aabb.min.xyz
+	root.aabb_max = root_aabb.max.xyz
 
-	info.num_nodes_used  = 1; // Root node
-	info.num_nodes_used += 1; // Skip one node after the root node.
+	info.num_nodes_used  = 1 // Root node
+	info.num_nodes_used += 1 // Skip one node after the root node.
 	
-	bvh_subdivide_recursiv(&info, root);
+	bvh_subdivide_recursiv(&info, root)
 	
 	// @Note: Would like to free the unused memory after num_nodes_used but not sure thats possible without making a new allocation.
 	out_info := BvhInfo {
@@ -153,50 +153,50 @@ bvh_build_bottom_level :: proc(vertex_buf : [^]byte, vertex_byte_size : uint, in
 		indecies = info.indecies,
 	}
 	
-	return out_info;
+	return out_info
 }
 
 bvh_is_leaf_node :: #force_inline proc "contextless" (node : ^BvhNode) -> bool {
-	return node.count > 0;
+	return node.count > 0
 }
 
 bvh_calculate_node_cost :: proc(node : ^BvhNode) -> f32 {
-	node_aabb := aabb_from_min_max_vec3(node.aabb_min, node.aabb_max);
-	return f32(node.count) * aabb_calculate_surface_area(node_aabb);
+	node_aabb := aabb_from_min_max_vec3(node.aabb_min, node.aabb_max)
+	return f32(node.count) * aabb_calculate_surface_area(node_aabb)
 }
 
 @(private="file")
 bvh_recalculate_node_aabb :: proc (info : ^BvhBuildInfo, node : ^BvhNode) {
 
-	aabb := aabb_create_inverse_infinite();
+	aabb := aabb_create_inverse_infinite()
 	
 	for i : u32 = 0; i < node.count; i += 1 {
 
-		leaf_tri : [3][3]f32 = bvh_get_triangle_positions(info, uint(node.left_first + i));
-		aabb_grow_by_point(&aabb, leaf_tri[0]);
-		aabb_grow_by_point(&aabb, leaf_tri[1]);
-		aabb_grow_by_point(&aabb, leaf_tri[2]);
+		leaf_tri : [3][3]f32 = bvh_get_triangle_positions(info, uint(node.left_first + i))
+		aabb_grow_by_point(&aabb, leaf_tri[0])
+		aabb_grow_by_point(&aabb, leaf_tri[1])
+		aabb_grow_by_point(&aabb, leaf_tri[2])
 	}
 
-	node.aabb_min = aabb.min.xyz;
-	node.aabb_max = aabb.max.xyz;
+	node.aabb_min = aabb.min.xyz
+	node.aabb_max = aabb.max.xyz
 }
 
 @(private="file")
 bvh_split_node_midpoint :: proc(node : ^BvhNode) -> (split_axis : u32, split_pos_along_axis : f32) {
 
-	extent : [3]f32 = node.aabb_max - node.aabb_min;
-	axis : u32 = 0;
+	extent : [3]f32 = node.aabb_max - node.aabb_min
+	axis : u32 = 0
 	if extent.y > extent.x {
-		axis = 1;
+		axis = 1
 	}
 	if extent.z > extent[axis] {
-		axis = 2;
+		axis = 2
 	}
 	// split position along the longest axis of the nodes aabb
-	split_pos : f32 = node.aabb_min[axis] + extent[axis] * 0.5;
+	split_pos : f32 = node.aabb_min[axis] + extent[axis] * 0.5
 
-	return axis, split_pos;
+	return axis, split_pos
 }
 
 // num_split_planes is a quality metric of how many split planes to evalute.
@@ -205,11 +205,11 @@ bvh_split_node_midpoint :: proc(node : ^BvhNode) -> (split_axis : u32, split_pos
 @(private="file")
 bvh_find_best_split_plane :: proc(info : ^BvhBuildInfo, node : ^BvhNode) -> (split_axis : u32, split_pos_along_axis : f32, split_cost : f32){
 
-	assert(bvh_is_leaf_node(node));
+	assert(bvh_is_leaf_node(node))
 
-	best_axis : u32 = 0;
-	best_pos  : f32 = 0;
-	best_cost : f32 = math.INF_F32;
+	best_axis : u32 = 0
+	best_pos  : f32 = 0
+	best_cost : f32 = math.INF_F32
 
 	if info.num_split_planes <= 1 {
 
@@ -220,13 +220,13 @@ bvh_find_best_split_plane :: proc(info : ^BvhBuildInfo, node : ^BvhNode) -> (spl
 
 				tri_index : uint = uint(node.left_first + i)
 
-				candidate_pos : f32 = info.tri_centroids[tri_index][axis];
-				cost : f32 = bvh_evaluate_surface_area_heuristic(info, node, axis, candidate_pos);
+				candidate_pos : f32 = info.tri_centroids[tri_index][axis]
+				cost : f32 = bvh_evaluate_surface_area_heuristic(info, node, axis, candidate_pos)
 
 				if cost < best_cost{
-					best_cost = cost;
-					best_pos = candidate_pos;
-					best_axis = axis;
+					best_cost = cost
+					best_pos = candidate_pos
+					best_axis = axis
 				}
 			}
 		}
@@ -235,48 +235,48 @@ bvh_find_best_split_plane :: proc(info : ^BvhBuildInfo, node : ^BvhNode) -> (spl
 		
 		// Intialze axis candidate to xyz order, then sort them by longest axis.
 		// We then only evalute the two longest axis and skip the shortest one for faster builds.
-		axis_candidates := [3]u32{0,1,2};
-		extent : [3]f32 = node.aabb_max - node.aabb_min;
+		axis_candidates := [3]u32{0,1,2}
+		extent : [3]f32 = node.aabb_max - node.aabb_min
 
 		if extent.y > extent.x {
-			axis_candidates.xy = axis_candidates.yx;
+			axis_candidates.xy = axis_candidates.yx
 		}
 		if extent.z > extent[axis_candidates[1]] {
-			axis_candidates.yz = axis_candidates.zy;
+			axis_candidates.yz = axis_candidates.zy
 		}
 		// This test is redundant because we will evaluate the first two candidate anyway.
 		if extent[axis_candidates[1]] > extent[axis_candidates[0]] {
-			axis_candidates.xy = axis_candidates.yx;
+			axis_candidates.xy = axis_candidates.yx
 		}
 
-		assert(extent[axis_candidates[0]] >= extent[axis_candidates[1]]);
-		assert(extent[axis_candidates[1]] >= extent[axis_candidates[2]]);
+		assert(extent[axis_candidates[0]] >= extent[axis_candidates[1]])
+		assert(extent[axis_candidates[1]] >= extent[axis_candidates[2]])
 
-		num_intervals : u32 = info.num_split_planes + 1;
+		num_intervals : u32 = info.num_split_planes + 1
 
 		// evaluate 2 longest axis
 		for a in 0..<2 {
 
-			axis : u32 = axis_candidates[a];
+			axis : u32 = axis_candidates[a]
 
 			// Find bounds of the centroids which is smaller than the bounds of the whole aabb
-			bounds_min : f32 = info.tri_centroids[node.left_first][axis];
-			bounds_max : f32 = info.tri_centroids[node.left_first][axis];
+			bounds_min : f32 = info.tri_centroids[node.left_first][axis]
+			bounds_max : f32 = info.tri_centroids[node.left_first][axis]
 
 			for i : u32 = 1; i < node.count; i+=1 {
-				tri_index : u32 = node.left_first + i;
-				bounds_min = min(bounds_min, info.tri_centroids[tri_index][axis]);
-				bounds_max = max(bounds_max, info.tri_centroids[tri_index][axis]);
+				tri_index : u32 = node.left_first + i
+				bounds_min = min(bounds_min, info.tri_centroids[tri_index][axis])
+				bounds_max = max(bounds_max, info.tri_centroids[tri_index][axis])
 			}
 
 			if bounds_min == bounds_max {
-				continue;
+				continue
 			}
 
 
 			when BVH_CONFIG_USE_BINNING {
 
-				bvh_reset_all_bins(info.split_bins);
+				bvh_reset_all_bins(info.split_bins)
 				
 				// num_intervals == num_bins
 				bin_scale : f32 = f32(num_intervals) / (bounds_max - bounds_min)
@@ -284,117 +284,117 @@ bvh_find_best_split_plane :: proc(info : ^BvhBuildInfo, node : ^BvhNode) -> (spl
 				// Figure out which bin a triangle belongs to and update the bin.
 				for i : u32 = 0; i < node.count; i+=1 {
 					
-					tri_index : u32 = node.left_first + i;
+					tri_index : u32 = node.left_first + i
 					tri : [3][3]f32 = bvh_get_triangle_positions(info, cast(uint)tri_index)
 
 					bin_index : u32 = min(num_intervals - 1, cast(u32)((info.tri_centroids[tri_index][axis] - bounds_min) * bin_scale)  )
-					info.split_bins[bin_index].count += 1;
-					aabb_grow_by_point(&info.split_bins[bin_index].aabb, tri[0]);
-					aabb_grow_by_point(&info.split_bins[bin_index].aabb, tri[1]);
-					aabb_grow_by_point(&info.split_bins[bin_index].aabb, tri[2]);
+					info.split_bins[bin_index].count += 1
+					aabb_grow_by_point(&info.split_bins[bin_index].aabb, tri[0])
+					aabb_grow_by_point(&info.split_bins[bin_index].aabb, tri[1])
+					aabb_grow_by_point(&info.split_bins[bin_index].aabb, tri[2])
 				}
 
-				assert(info.num_split_planes == num_intervals - 1);
+				assert(info.num_split_planes == num_intervals - 1)
 
 				// For each split plane we calculate the left and right aabb surface area and tri_count
 				// Sweep left to right and right to left simulatneously to gather per split plane data.
-				left_aabb  : AABB = aabb_create_inverse_infinite();
-				right_aabb : AABB = aabb_create_inverse_infinite();
-				left_sum, right_sum : u32 = 0, 0;
+				left_aabb  : AABB = aabb_create_inverse_infinite()
+				right_aabb : AABB = aabb_create_inverse_infinite()
+				left_sum, right_sum : u32 = 0, 0
 				
 				for i : u32 = 0; i < info.num_split_planes; i +=1 {
 					
-					left_sum += info.split_bins[i].count;
-					info.split_plane_count_left[i] = left_sum;
-					left_aabb = aabb_combine(left_aabb, info.split_bins[i].aabb);
-					info.split_plane_area_left[i] = aabb_calculate_surface_area(left_aabb);					
+					left_sum += info.split_bins[i].count
+					info.split_plane_count_left[i] = left_sum
+					left_aabb = aabb_combine(left_aabb, info.split_bins[i].aabb)
+					info.split_plane_area_left[i] = aabb_calculate_surface_area(left_aabb)					
 
-					right_sum += info.split_bins[num_intervals - 1 - i].count;
-					info.split_plane_count_right[num_intervals - 2 - i] = right_sum;
-					right_aabb = aabb_combine(right_aabb, info.split_bins[num_intervals - 1 - i].aabb);
-					info.split_plane_area_right[num_intervals - 2 - i] = aabb_calculate_surface_area(right_aabb);
+					right_sum += info.split_bins[num_intervals - 1 - i].count
+					info.split_plane_count_right[num_intervals - 2 - i] = right_sum
+					right_aabb = aabb_combine(right_aabb, info.split_bins[num_intervals - 1 - i].aabb)
+					info.split_plane_area_right[num_intervals - 2 - i] = aabb_calculate_surface_area(right_aabb)
 				}
 
 				// Find best split plane with lowest surface area cost.
-				interval_size : f32 = (bounds_max - bounds_min) / f32(num_intervals);
+				interval_size : f32 = (bounds_max - bounds_min) / f32(num_intervals)
 
 				for i : u32 = 0; i < info.num_split_planes; i+=1 {
-					plane_cost : f32 = cast(f32)info.split_plane_count_left[i] * info.split_plane_area_left[i] + cast(f32)info.split_plane_count_right[i] * info.split_plane_area_right[i];
+					plane_cost : f32 = cast(f32)info.split_plane_count_left[i] * info.split_plane_area_left[i] + cast(f32)info.split_plane_count_right[i] * info.split_plane_area_right[i]
 					if plane_cost < best_cost {
-						best_cost = plane_cost;
-						best_axis = axis;
-						best_pos  = bounds_min + f32(i + 1) * interval_size;
+						best_cost = plane_cost
+						best_axis = axis
+						best_pos  = bounds_min + f32(i + 1) * interval_size
 					}
 				}
 			
 			} else { // NO BVH_CONFIG_USE_BINNING
 
-				interval_size : f32 = (bounds_max - bounds_min) / f32(num_intervals);
+				interval_size : f32 = (bounds_max - bounds_min) / f32(num_intervals)
 
 				for i : u32 = 0; i < info.num_split_planes; i += 1 {
 
-					candidate_pos : f32 = bounds_min + f32(i) * interval_size;
-					plane_cost : f32 = bvh_evaluate_surface_area_heuristic(info, node, axis, candidate_pos);
+					candidate_pos : f32 = bounds_min + f32(i) * interval_size
+					plane_cost : f32 = bvh_evaluate_surface_area_heuristic(info, node, axis, candidate_pos)
 					
-					assert(plane_cost >= 0.0);
+					assert(plane_cost >= 0.0)
 
 					if plane_cost < best_cost{
-						best_cost = plane_cost;
-						best_pos   = candidate_pos;
-						best_axis = axis;
+						best_cost = plane_cost
+						best_pos   = candidate_pos
+						best_axis = axis
 					}
 				}
 			}
 		}
 	}
 
-	return best_axis, best_pos, best_cost;
+	return best_axis, best_pos, best_cost
 }
 
 @(private="file")
 bvh_evaluate_surface_area_heuristic :: proc "contextless" (info : ^BvhBuildInfo, node : ^BvhNode, axis : u32, pos : f32) -> (cost : f32){
 
-	left_box  : AABB = aabb_create_inverse_infinite();
-	right_box : AABB = aabb_create_inverse_infinite();
+	left_box  : AABB = aabb_create_inverse_infinite()
+	right_box : AABB = aabb_create_inverse_infinite()
 	
-	left_count  : int = 0;
-	right_count : int = 0;
+	left_count  : int = 0
+	right_count : int = 0
 
 	for i in 0..<node.count {
 
-		tri_index : uint = uint(node.left_first + i);
+		tri_index : uint = uint(node.left_first + i)
 
 		tri : [3][3]f32 = bvh_get_triangle_positions(info, tri_index)
 
 		if info.tri_centroids[tri_index][axis] < pos {
-			left_count += 1;
+			left_count += 1
 
-			aabb_grow_by_point(&left_box, tri[0]);
-			aabb_grow_by_point(&left_box, tri[1]);
-			aabb_grow_by_point(&left_box, tri[2]);
+			aabb_grow_by_point(&left_box, tri[0])
+			aabb_grow_by_point(&left_box, tri[1])
+			aabb_grow_by_point(&left_box, tri[2])
 
 		} else {
-			right_count += 1;
-			aabb_grow_by_point(&right_box, tri[0]);
-			aabb_grow_by_point(&right_box, tri[1]);
-			aabb_grow_by_point(&right_box, tri[2]);
+			right_count += 1
+			aabb_grow_by_point(&right_box, tri[0])
+			aabb_grow_by_point(&right_box, tri[1])
+			aabb_grow_by_point(&right_box, tri[2])
 		}
 	}
 
-	left_cost  : f32 = f32(left_count)  * aabb_calculate_surface_area(left_box); 
-	right_cost : f32 = f32(right_count) * aabb_calculate_surface_area(right_box); 
-	_cost : f32 = left_cost + right_cost;
+	left_cost  : f32 = f32(left_count)  * aabb_calculate_surface_area(left_box) 
+	right_cost : f32 = f32(right_count) * aabb_calculate_surface_area(right_box) 
+	_cost : f32 = left_cost + right_cost
 
-	return _cost > 0.0 ? _cost : math.INF_F32;
+	return _cost > 0.0 ? _cost : math.INF_F32
 }
 
 @(private="file")
 bvh_subdivide_recursiv :: proc(info : ^BvhBuildInfo, node : ^BvhNode, curr_tree_depth : u32 = 1){
 		
-	assert(bvh_is_leaf_node(node));
+	assert(bvh_is_leaf_node(node))
 
 	if info.max_tree_depth > 0 && curr_tree_depth >= info.max_tree_depth {
-		return;
+		return
 	}
 
 	// For debugging / testing we can fallback to midpoint split
@@ -402,72 +402,72 @@ bvh_subdivide_recursiv :: proc(info : ^BvhBuildInfo, node : ^BvhNode, curr_tree_
 
 	when DO_MIDPOINT_SPLIT {
 		if node.tri_count <= 2 {
-			return;
+			return
 		}
-		axis, split_pos := bvh_split_node_midpoint(node);
+		axis, split_pos := bvh_split_node_midpoint(node)
 	} else {
 
-		axis, split_pos, split_cost := bvh_find_best_split_plane(info, node);
-		node_no_split_cost : f32 = bvh_calculate_node_cost(node);
+		axis, split_pos, split_cost := bvh_find_best_split_plane(info, node)
+		node_no_split_cost : f32 = bvh_calculate_node_cost(node)
 		if split_cost >= node_no_split_cost  {
 			// abort if splitting does not improve the cost of the node
-			return; 
+			return 
 		}
 	}
 
 	// sort triangles left and right to the split axis position
 	// @Note: i and j Must be signed intergers!
-	i : int = cast(int)node.left_first;
-	j : int = i + cast(int)node.count - 1;
+	i : int = cast(int)node.left_first
+	j : int = i + cast(int)node.count - 1
 
 	{
-		tri_indecies : [^][3]u32 = cast([^][3]u32)&info.indecies[0];
+		tri_indecies : [^][3]u32 = cast([^][3]u32)&info.indecies[0]
 
 		for i <= j {
 			if info.tri_centroids[i][axis] < split_pos {
-				i += 1;	
+				i += 1	
 			} else {
 
 				// swap triangles
-				tri_indecies[i]      , tri_indecies[j]       = tri_indecies[j]      , tri_indecies[i];
-				info.tri_centroids[i], info.tri_centroids[j] = info.tri_centroids[j], info.tri_centroids[i];
-				j -= 1;
+				tri_indecies[i]      , tri_indecies[j]       = tri_indecies[j]      , tri_indecies[i]
+				info.tri_centroids[i], info.tri_centroids[j] = info.tri_centroids[j], info.tri_centroids[i]
+				j -= 1
 			}
 		}
 	}
 
-	left_count : u32 = cast(u32)i - node.left_first;
+	left_count : u32 = cast(u32)i - node.left_first
 	if left_count == 0 || left_count == node.count {
-		return; // abort if one of the childs would be empty.
+		return // abort if one of the childs would be empty.
 	}
 
 	// create child nodes
-	left_child_idx : u32 = cast(u32)info.num_nodes_used;
-	info.num_nodes_used += 1;
+	left_child_idx : u32 = cast(u32)info.num_nodes_used
+	info.num_nodes_used += 1
 	
-	right_child_idx : u32 = cast(u32)info.num_nodes_used;
-	info.num_nodes_used += 1;
+	right_child_idx : u32 = cast(u32)info.num_nodes_used
+	info.num_nodes_used += 1
 
-	info.nodes[left_child_idx].left_first = node.left_first;
-	info.nodes[left_child_idx].count = left_count;
+	info.nodes[left_child_idx].left_first = node.left_first
+	info.nodes[left_child_idx].count = left_count
 
-	info.nodes[right_child_idx].left_first = cast(u32)i;
-	info.nodes[right_child_idx].count = node.count - left_count;
+	info.nodes[right_child_idx].left_first = cast(u32)i
+	info.nodes[right_child_idx].count = node.count - left_count
 
 	// make the current node a parent node
-	node.left_first = left_child_idx;
-	node.count = 0;
+	node.left_first = left_child_idx
+	node.count = 0
 
-	left_child_node  := &info.nodes[left_child_idx];
-	right_child_node := &info.nodes[right_child_idx];
+	left_child_node  := &info.nodes[left_child_idx]
+	right_child_node := &info.nodes[right_child_idx]
 
-	bvh_recalculate_node_aabb(info, left_child_node);
-	bvh_recalculate_node_aabb(info, right_child_node);
+	bvh_recalculate_node_aabb(info, left_child_node)
+	bvh_recalculate_node_aabb(info, right_child_node)
 
-	bvh_subdivide_recursiv(info, left_child_node , curr_tree_depth + 1);
-	bvh_subdivide_recursiv(info, right_child_node, curr_tree_depth + 1);
+	bvh_subdivide_recursiv(info, left_child_node , curr_tree_depth + 1)
+	bvh_subdivide_recursiv(info, right_child_node, curr_tree_depth + 1)
 
-	return;
+	return
 }
 
 // Triangle index means that triangle_index * 3 is the first indecie for a triangle in a normal index buffer.
@@ -476,15 +476,15 @@ bvh_get_triangle_positions :: proc "contextless" (info : ^BvhBuildInfo, triangle
 
 	// 3 indecies per triangle
 	// we use vertex byte size to lookup the byte offset in the original vertex buffer.
-	v_0_byte_offset : uint = cast(uint)info.indecies[triangle_index * 3 + 0] * info.vertex_byte_size;
-	v_1_byte_offset : uint = cast(uint)info.indecies[triangle_index * 3 + 1] * info.vertex_byte_size;
-	v_2_byte_offset : uint = cast(uint)info.indecies[triangle_index * 3 + 2] * info.vertex_byte_size;
+	v_0_byte_offset : uint = cast(uint)info.indecies[triangle_index * 3 + 0] * info.vertex_byte_size
+	v_1_byte_offset : uint = cast(uint)info.indecies[triangle_index * 3 + 1] * info.vertex_byte_size
+	v_2_byte_offset : uint = cast(uint)info.indecies[triangle_index * 3 + 2] * info.vertex_byte_size
 	
 	// cast byte ptr to float3 ptr and dereferance. 
-	tri_positions[0] = (cast(^[3]f32)&info.vertex_buf[v_0_byte_offset])^;
-	tri_positions[1] = (cast(^[3]f32)&info.vertex_buf[v_1_byte_offset])^;
-	tri_positions[2] = (cast(^[3]f32)&info.vertex_buf[v_2_byte_offset])^;
-	return tri_positions;
+	tri_positions[0] = (cast(^[3]f32)&info.vertex_buf[v_0_byte_offset])^
+	tri_positions[1] = (cast(^[3]f32)&info.vertex_buf[v_1_byte_offset])^
+	tri_positions[2] = (cast(^[3]f32)&info.vertex_buf[v_2_byte_offset])^
+	return tri_positions
 }
 
 

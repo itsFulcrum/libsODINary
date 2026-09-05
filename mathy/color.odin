@@ -2,7 +2,14 @@ package mathy
 
 import "core:math"
 
+hash_color :: proc(i: u32) -> [3]f32 {
+    // Golden ratio distribution
+    h := math.mod(f32(i) * 0.61803398875, 1.0)
 
+    return hsv_to_rgb(h, 0.65, 0.95)
+}
+
+// @Note: chat gpt, look this up properly!
 hsv_to_rgb :: proc(h, s, v: f32) -> [3]f32 {
     c : f32 = v * s
     x : f32 = c * (1.0 - math.abs(math.mod(h * 6.0, 2.0) - 1.0))
@@ -11,18 +18,18 @@ hsv_to_rgb :: proc(h, s, v: f32) -> [3]f32 {
     r, g, b: f32
 
     switch {
-	    case h < 1.0/6.0:
-	        r, g, b = c, x, 0
-	    case h < 2.0/6.0:
-	        r, g, b = x, c, 0
-	    case h < 3.0/6.0:
-	        r, g, b = 0, c, x
-	    case h < 4.0/6.0:
-	        r, g, b = 0, x, c
-	    case h < 5.0/6.0:
-	        r, g, b = x, 0, c
-	    case true:
-	        r, g, b = c, 0, x
+    case h < 1.0/6.0:
+        r, g, b = c, x, 0
+    case h < 2.0/6.0:
+        r, g, b = x, c, 0
+    case h < 3.0/6.0:
+        r, g, b = 0, c, x
+    case h < 4.0/6.0:
+        r, g, b = 0, x, c
+    case h < 5.0/6.0:
+        r, g, b = x, 0, c
+    case true:
+        r, g, b = c, 0, x
     }
 
     return [3]f32{r + m, g + m, b + m}

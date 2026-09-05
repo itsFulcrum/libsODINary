@@ -8,15 +8,15 @@ open_system_folder_at_path :: proc(path : string) -> (ok : bool){
 
 	// Validate path..
 	if !os.exists(path) {
-		return false;
+		return false
 	}
 
-	dir_path : string = path;
+	dir_path : string = path
 
 	if os.is_file(path) {
 
-		p , _ := os.split_path(path);
-		dir_path = p;
+		p , _ := os.split_path(path)
+		dir_path = p
 	}
 
 	/*
@@ -39,19 +39,19 @@ open_system_folder_at_path :: proc(path : string) -> (ok : bool){
     	windows.SW_SHOWNORMAL,
 	)
 
-	return handle != nil;
+	return handle != nil
 }
 
 
 
 is_empty_directory_by_path :: proc(path : string) -> bool {
 
-	files, read_dir_err := os.read_directory_by_path(path, n = 1, allocator = context.temp_allocator);
+	files, read_dir_err := os.read_directory_by_path(path, n = 1, allocator = context.temp_allocator)
 	if read_dir_err != os.ERROR_NONE {
-		return false;
+		return false
 	}
 
-	is_empty : bool = files == nil || len(files) == 0;
+	is_empty : bool = files == nil || len(files) == 0
 
-	return is_empty;
+	return is_empty
 }

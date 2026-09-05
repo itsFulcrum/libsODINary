@@ -1,0 +1,10 @@
+^C:\USERS\FULCRUM\DOCUMENTS\PROJECTS\ODIN\LIBSODINARY\VDBTINY\SRC\BUILD\CMAKEFILES\0DC047D6671B136000C0FF503AEB577F\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/fulcrum/Documents/Projects/ODIN/libsODINary/VdbTiny/src -BC:/Users/fulcrum/Documents/Projects/ODIN/libsODINary/VdbTiny/src/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/fulcrum/Documents/Projects/ODIN/libsODINary/VdbTiny/src/build/TinyVDB_IO.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

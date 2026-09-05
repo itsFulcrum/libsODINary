@@ -1,0 +1,3 @@
+C:/Users/fulcrum/Documents/Projects/ODIN/libsODINary/VdbTiny/src/build/CMakeFiles/TinyVDB_IO.dir
+C:/Users/fulcrum/Documents/Projects/ODIN/libsODINary/VdbTiny/src/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/fulcrum/Documents/Projects/ODIN/libsODINary/VdbTiny/src/build/CMakeFiles/ZERO_CHECK.dir

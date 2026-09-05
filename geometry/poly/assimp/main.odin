@@ -1,12 +1,12 @@
 ﻿package assimp
 
-import "base:runtime"
-import "core:fmt"
-import "core:strings"
+// import "base:runtime"
+// import "core:fmt"
+// import "core:strings"
 
-import "core:c/libc"
+// import "core:c/libc"
 
-import ai "import"
+// import ai "import"
 
 
 

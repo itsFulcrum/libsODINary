@@ -7,10 +7,10 @@ import "core:c"
 // Apparently in the c++ code of glslang 
 // they are just classes with methods but have no actual data. 
 // Why? I dont know? Maybe i just dont understand it.
-shader_t   :: struct {};
-program_t  :: struct {};
-mapper_t   :: struct {};
-resolver_t :: struct {};
+shader_t   :: struct {}
+program_t  :: struct {}
+mapper_t   :: struct {}
+resolver_t :: struct {}
 
 // /* Version counterpart */
 version_t :: struct {

@@ -14,140 +14,140 @@ FileWatcherData :: struct{
 	_last_write_times: [dynamic]time.Time,
 }
 
+// Optinal but needed when using a custom allocator.
 init_with_allocator :: proc(file_watcher_data: ^FileWatcherData, alloc := context.allocator){
-	file_watcher_data.allocator = alloc;
-	file_watcher_data._filepaths = make_dynamic_array([dynamic]string, allocator = alloc);
-	file_watcher_data._last_write_times = make_dynamic_array([dynamic]time.Time, allocator = alloc);
+	file_watcher_data.allocator = alloc
+	file_watcher_data._filepaths = make_dynamic_array([dynamic]string, allocator = alloc)
+	file_watcher_data._last_write_times = make_dynamic_array([dynamic]time.Time, allocator = alloc)
 }
 
 add_file :: proc(file_watcher_data: ^FileWatcherData, filepath: string) {
 
 	if file_watcher_data == nil {
-		return;
+		return
 	}
 
 	if !os.exists(filepath) || !os.is_file(filepath) {
-		return;
+		return
 	}
 
 	for &f in file_watcher_data._filepaths {
 		if strings.compare(filepath,f) == 0 {
-			return; // already exists.
+			return // already exists.
 		}
 	}
 
 
-	last_write, error := os.modification_time_by_path(filepath);
+	last_write, error := os.modification_time_by_path(filepath)
 
 	if error != nil {
-		log.errorf("FILEY: Error reading write time for file: {}", filepath);
-		return;
+		log.errorf("FILEY: Error reading write time for file: {}", filepath)
+		return
 	}
 
-	append(&file_watcher_data._filepaths, strings.clone(filepath, allocator = file_watcher_data.allocator));
-	append(&file_watcher_data._last_write_times, last_write);
+	append(&file_watcher_data._filepaths, strings.clone(filepath, allocator = file_watcher_data.allocator))
+	append(&file_watcher_data._last_write_times, last_write)
 }
 
 // Add a list of files to the list
 add_files :: proc(file_watcher_data: ^FileWatcherData, filepaths: []string){
 
 	if file_watcher_data == nil {
-		return;
+		return
 	}
 
 	for &path in filepaths {
 
 		if !os.exists(path) || !os.is_file(path) {
-			continue;
+			continue
 		}
 
 		for &f in file_watcher_data._filepaths {
 			if strings.compare(path, f) == 0 {
-				continue; // already exists.
+				continue // already exists.
 			}
 		}
 
-
-		last_write, error := os.modification_time_by_path(path);
+		last_write, error := os.modification_time_by_path(path)
 
 		if error != nil {
-			log.errorf("FILEY: error reading write time for file: {}", path);
-			continue;
+			log.errorf("FILEY: error reading write time for file: {}", path)
+			continue
 		}
 
-		append(&file_watcher_data._filepaths, strings.clone(path, file_watcher_data.allocator));
-		append(&file_watcher_data._last_write_times, last_write);
+		append(&file_watcher_data._filepaths, strings.clone(path, file_watcher_data.allocator))
+		append(&file_watcher_data._last_write_times, last_write)
 	}
 }
 
 clear_contents :: proc(file_watcher_data: ^FileWatcherData) {
 	
 	if file_watcher_data == nil {
-		return;
+		return
 	}
 
 	for &str in file_watcher_data._filepaths{
-		delete(str);
+		delete(str)
 	}
 
 	clear(&file_watcher_data._filepaths)
-	clear(&file_watcher_data._last_write_times);
+	clear(&file_watcher_data._last_write_times)
 }
 
 destroy :: proc(file_watcher_data: ^FileWatcherData) {
 	
 	if file_watcher_data == nil {
-		return;
+		return
 	}
 
 	for &str in file_watcher_data._filepaths{
-		delete(str);
+		delete(str)
 	}
 
-	delete(file_watcher_data._filepaths);
-	delete(file_watcher_data._last_write_times);
+	delete(file_watcher_data._filepaths)
+	delete(file_watcher_data._last_write_times)
 }
 
 // Check wheather any file has been written to.
 did_any_file_change :: proc(file_watcher_data: ^FileWatcherData) -> bool {
 
 	if file_watcher_data == nil {
-		return false;
+		return false
 	}
 
-	assert(len(file_watcher_data._filepaths) == len(file_watcher_data._last_write_times));
+	assert(len(file_watcher_data._filepaths) == len(file_watcher_data._last_write_times))
 
 	for i in 0..<len(file_watcher_data._filepaths){
 
-		last_write, error := os.modification_time_by_path(file_watcher_data._filepaths[i]);
+		last_write, error := os.modification_time_by_path(file_watcher_data._filepaths[i])
 		if error != nil {
-			return true;
+			return true
 		}
 
 		if last_write._nsec != file_watcher_data._last_write_times[i]._nsec {
-			return true;
+			return true
 		}
 	}
 
-	return false;
+	return false
 }
 
 // Update the write time for each entry.
 update_all_write_times :: proc(file_watcher_data: ^FileWatcherData){
 	
 	if file_watcher_data == nil {
-		return;
+		return
 	}
 
-	assert(len(file_watcher_data._filepaths) == len(file_watcher_data._last_write_times));
+	assert(len(file_watcher_data._filepaths) == len(file_watcher_data._last_write_times))
 
 	for i in 0..< len(file_watcher_data._filepaths) {
-		last_write, error := os.modification_time_by_path(file_watcher_data._filepaths[i]);
+		last_write, error := os.modification_time_by_path(file_watcher_data._filepaths[i])
 		
 		if error != nil {
-			log.errorf("FILEY: Error reading write time for file: {}", file_watcher_data._filepaths[i]);
+			log.errorf("FILEY: Error reading write time for file: {}", file_watcher_data._filepaths[i])
 		} else {
-			file_watcher_data._last_write_times[i] = last_write;
+			file_watcher_data._last_write_times[i] = last_write
 		}
 	}
 

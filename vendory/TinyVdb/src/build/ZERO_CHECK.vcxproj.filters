@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\fulcrum\Documents\Projects\ODIN\libsODINary\VdbTiny\src\build\CMakeFiles\0dc047d6671b136000c0ff503aeb577f\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{394F9850-6D78-3C00-A5FE-B1D49B3777B2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

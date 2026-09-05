@@ -135,7 +135,6 @@ string_clone_from_ai_string :: proc(aistr: ^String, allocator := context.allocat
 
 string_clone_to_ai_string :: proc(text: string, aistr: ^String) {
 	assert(aistr != nil, "You are clone to a nil aiString.")
-	data := raw_data(text)
 	copy(aistr.data[:], text)
 	aistr.length = cast(u32)len(text)
 }

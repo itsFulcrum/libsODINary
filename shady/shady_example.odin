@@ -6,12 +6,12 @@ import "core:os"
 // An example of using shady to load and preprocess glsl files and compile them to SPIRV.
 load_spirv_from_glsl_file :: proc(src_filename : string, shader_stage : ShaderStage, spirv_version : SpirvVersion, client_version : ClientVersion, log_errors: bool = true) -> []byte {
 
-	included_files : [dynamic]string;
+	included_files : [dynamic]string
 	defer {
 		for &str in included_files{
-			delete(str);
+			delete(str)
 		}
-		delete(included_files);
+		delete(included_files)
 	}
 
 	parse_info : ParseInfo = {
@@ -33,57 +33,57 @@ load_spirv_from_glsl_file :: proc(src_filename : string, shader_stage : ShaderSt
     	//error_string = "", 
     }
 
-	glsl_src_code, parse_ok := parse_glsl_file(src_filename, &parse_info, context.allocator);
+	glsl_src_code, parse_ok := parse_glsl_file(src_filename, &parse_info, context.allocator)
 	// @Note: if 'parse_ok == false', glsl_src_code may still contain data as not all erros result in compilation failure.
 	defer if glsl_src_code != nil {
-		delete(glsl_src_code);
+		delete(glsl_src_code)
 	}
 	if !parse_ok {
 		if log_errors {
 			// Upon errors we can get error massage from the 'error_string' in parse_info.
-			log.errorf("SHADY: Parsing Error: {}", parse_info.error_string);
+			log.errorf("SHADY: Parsing Error: {}", parse_info.error_string)
 		}
-		return nil;
+		return nil
 	}
 
 
-	data_or_error_str, transpile_ok := transpile_glsl_to_SPIRV(glsl_src_code, shader_stage, spirv_version, client_version, included_files[:], context.allocator);
+	data_or_error_str, transpile_ok := transpile_glsl_to_SPIRV(glsl_src_code, shader_stage, spirv_version, client_version, included_files[:], context.allocator)
 
 	if !transpile_ok {
 		// Upon errors the compile error message will be in the returned data as a string,
 		// NOTE that we do NOT free the 'data_or_error_str' in this case because if it's an error string, it was allocated using context.temp_allocator.
 		if log_errors {
-			log.errorf("SHADY: Compilation Error: {}", transmute(string)data_or_error_str);
+			log.errorf("SHADY: Compilation Error: {}", transmute(string)data_or_error_str)
 		}
-		return nil;
+		return nil
 	}
 
-	return data_or_error_str;
+	return data_or_error_str
 }
 
 
 read_file_contents :: proc(filename: string, allocator := context.allocator) -> (data : []byte, ok : bool) {
 
 	if !os.exists(filename) || !os.is_file(filename) {
-		return nil, false;
+		return nil, false
 	}
 
-	file_contents, err := os.read_entire_file_from_path(filename, allocator);
+	file_contents, err := os.read_entire_file_from_path(filename, allocator)
 	if err != nil || file_contents == nil {
-		return nil, false;
+		return nil, false
 	}
 
-	return file_contents, true;
+	return file_contents, true
 }
 
 
 write_file_contents :: proc(filenme: string, data: []byte) -> bool {
 	
 	if data == nil {
-		return false;
+		return false
 	}
 
-	err :=  os.write_entire_file_from_bytes(filenme, data);
+	err :=  os.write_entire_file_from_bytes(filenme, data)
 
-	return err == nil;
+	return err == nil
 }

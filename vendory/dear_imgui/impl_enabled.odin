@@ -3,6 +3,8 @@ package imgui
 // This is a generated helper file which you can use to know which
 // implementations have been compiled into the bindings.
 
+// Can just change this must recompile i gues...
+
 BACKEND_ALLEGRO5_ENABLED :: false
 BACKEND_ANDROID_ENABLED :: false
 BACKEND_DX9_ENABLED :: false

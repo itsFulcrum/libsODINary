@@ -13,7 +13,7 @@ DEFAULT_PARSE_FLAGS :: ParseFlags{.UnfoldIncludes, .GenerateHeaderguards, .Strip
 
 
 
-ReadFile_CallbackSignature :: #type proc(filename: string, allocator := context.allocator) -> (data : []byte, ok : bool);
+ReadFile_CallbackSignature :: #type proc(filename: string, allocator := context.allocator) -> (data : []byte, ok : bool)
 
 ParseInfo :: struct {
     parse_flags : ParseFlags,                       // Required: Options for parsing.

@@ -5,7 +5,7 @@ import "glslang"
 import "core:c"
 import "core:mem"
 
-import "core:log"
+// import "core:log"
 import "core:fmt"
 import "core:strings"
 import "core:strconv"
@@ -32,17 +32,17 @@ import "core:path/filepath"
 // the 'format_glslang_error_info_log()' procedure below.
 transpile_glsl_to_SPIRV :: proc(glsl_src_code : []u8, shader_stage : ShaderStage, spirv_version : SpirvVersion, target_client_version : ClientVersion, src_files : []string = nil, allocator := context.allocator) -> (data_or_error_str: []byte, ok : bool) {
 	
-	assert(glsl_src_code != nil);
-	assert(shader_stage != ShaderStage.COUNT);
-	assert(spirv_version != SpirvVersion.COUNT);
-	assert(target_client_version != ClientVersion.COUNT);
+	assert(glsl_src_code != nil)
+	assert(shader_stage != ShaderStage.COUNT)
+	assert(spirv_version != SpirvVersion.COUNT)
+	assert(target_client_version != ClientVersion.COUNT)
 
-	client 							: glslang.client_t 					= target_client_version == ClientVersion.OPENGL_450 ? glslang.client_t.CLIENT_OPENGL : glslang.client_t.CLIENT_VULKAN;
-	shader_stage_glslang 			: glslang.stage_t 					= cast(glslang.stage_t)shader_stage;
-	client_version_glslang 			: glslang.target_client_version_t   = cast(glslang.target_client_version_t)target_client_version;
-	target_language_version_glslang : glslang.target_language_version_t = cast(glslang.target_language_version_t)spirv_version;
+	client 							: glslang.client_t 					= target_client_version == ClientVersion.OPENGL_450 ? glslang.client_t.CLIENT_OPENGL : glslang.client_t.CLIENT_VULKAN
+	shader_stage_glslang 			: glslang.stage_t 					= cast(glslang.stage_t)shader_stage
+	client_version_glslang 			: glslang.target_client_version_t   = cast(glslang.target_client_version_t)target_client_version
+	target_language_version_glslang : glslang.target_language_version_t = cast(glslang.target_language_version_t)spirv_version
 
-	shader_code_cstr : cstring = cast(cstring)raw_data(glsl_src_code); 
+	shader_code_cstr : cstring = cast(cstring)raw_data(glsl_src_code)
 
 	input : glslang.input_t = {
 		language = glslang.source_t.SOURCE_GLSL,
@@ -61,22 +61,22 @@ transpile_glsl_to_SPIRV :: proc(glsl_src_code : []u8, shader_stage : ShaderStage
 	}
 
 
-	shader : ^glslang.shader_t = glslang.shader_create(&input);
-	defer glslang.shader_delete(shader);
+	shader : ^glslang.shader_t = glslang.shader_create(&input)
+	defer glslang.shader_delete(shader)
 	
-	successful : c.int;
+	successful : c.int
 	successful = glslang.shader_preprocess(shader, &input)
 
-	src_filename : string = "unknown";
+	src_filename : string = "unknown"
 	if src_files != nil && len(src_files) > 0 {
-		src_filename = strings.clone(src_files[0], context.temp_allocator);
+		src_filename = strings.clone(src_files[0], context.temp_allocator)
 	}
 
 	if successful == 0 {
-		info_log : string = strings.clone_from_cstring(glslang.shader_get_info_log(shader), context.temp_allocator);
-		error_str : string = format_glslang_error_info_log(&info_log, "Preprocessing", src_files);		
-		err := transmute([]u8)error_str;
-		return err, false;
+		info_log : string = strings.clone_from_cstring(glslang.shader_get_info_log(shader), context.temp_allocator)
+		error_str : string = format_glslang_error_info_log(&info_log, "Preprocessing", src_files)	
+		err := transmute([]u8)error_str
+		return err, false
 	}
 
 	// assert(shader != nil);
@@ -84,36 +84,36 @@ transpile_glsl_to_SPIRV :: proc(glsl_src_code : []u8, shader_stage : ShaderStage
 	successful = glslang.shader_parse(shader, &input)
 	if successful == 0 {
 
-		info_log : string = strings.clone_from_cstring(glslang.shader_get_info_log(shader), context.temp_allocator);
-		error_str : string = format_glslang_error_info_log(&info_log, "Parsing", src_files);		
-		err := transmute([]u8)error_str;
-		return err, false;
+		info_log : string = strings.clone_from_cstring(glslang.shader_get_info_log(shader), context.temp_allocator)
+		error_str : string = format_glslang_error_info_log(&info_log, "Parsing", src_files)		
+		err := transmute([]u8)error_str
+		return err, false
 	}
 
 
-	program : ^glslang.program_t = glslang.program_create();
-	defer glslang.program_delete(program);
+	program : ^glslang.program_t = glslang.program_create()
+	defer glslang.program_delete(program)
 
-	glslang.program_add_shader(program, shader);
+	glslang.program_add_shader(program, shader)
 	
-	successful = glslang.program_link(program, cast(c.int)(glslang.messages_t.MSG_SPV_RULES_BIT | glslang.messages_t.MSG_VULKAN_RULES_BIT) );
+	successful = glslang.program_link(program, cast(c.int)(glslang.messages_t.MSG_SPV_RULES_BIT | glslang.messages_t.MSG_VULKAN_RULES_BIT) )
 	if successful == 0 {		
-		info_log : string = strings.clone_from_cstring(glslang.shader_get_info_log(shader), context.temp_allocator);
-		error_str : string = format_glslang_error_info_log(&info_log, "Linking", src_files);
-		err := transmute([]u8)error_str;
-		return err, false;
+		info_log : string = strings.clone_from_cstring(glslang.shader_get_info_log(shader), context.temp_allocator)
+		error_str : string = format_glslang_error_info_log(&info_log, "Linking", src_files)
+		err := transmute([]u8)error_str
+		return err, false
 	}
 
-	glslang.program_SPIRV_generate(program, shader_stage_glslang);
+	glslang.program_SPIRV_generate(program, shader_stage_glslang)
 
-	size : int = cast(int)glslang.program_SPIRV_get_size(program);
-	words : [^]c.uint = make_multi_pointer([^]c.uint, cast(int)size, allocator);
+	size : int = cast(int)glslang.program_SPIRV_get_size(program)
+	words : [^]c.uint = make_multi_pointer([^]c.uint, size, allocator)
 
-	glslang.program_SPIRV_get(program, words);
+	glslang.program_SPIRV_get(program, words)
 	
-	spirv_data : []byte = mem.ptr_to_bytes(words, size);
+	spirv_data : []byte = mem.ptr_to_bytes(words, size)
 
-	return spirv_data, true;
+	return spirv_data, true
 }
 
 
@@ -138,64 +138,63 @@ format_glslang_error_info_log :: proc(info_log : ^string, stage: string, src_fil
 		2 compilation errors.  No code generated.
 	*/
 
-	src_filename : string = "unknown";
+	src_filename : string = "unknown"
 	if src_files != nil && len(src_files) > 0 {
-		src_filename = src_files[0];
+		src_filename = src_files[0]
 	}
 
-	error_str : string = fmt.aprintf("SHADY: GLSLang {} Error: Source Filepath: {}",stage, src_filename, allocator = context.temp_allocator);
+	error_str : string = fmt.aprintf("SHADY: GLSLang {} Error: Source Filepath: {}",stage, src_filename, allocator = context.temp_allocator)
 
 	for line_str in strings.split_lines_iterator(info_log){
 
 		ERROR_substr_offset : int = strings.index(line_str, "ERROR:")
 		if ERROR_substr_offset == -1 {
 			// There might be empty lines that  we will skip
-			continue;
+			continue
 		}
 
 		// Trim off 'ERROR: ' substring
-		error_trim : string = line_str[ERROR_substr_offset+7:]; // 'ERROR: ' = 7 bytes
+		error_trim : string = line_str[ERROR_substr_offset+7:] // 'ERROR: ' = 7 bytes
 		
-		first_colon_offset : int = strings.index(error_trim, ":");
+		first_colon_offset : int = strings.index(error_trim, ":")
 		if first_colon_offset == -1 {
 			// If we dont find a ':' we just append this line
-			error_str = strings.join({error_str, error_trim}, "\n", context.temp_allocator);
-			continue;
+			error_str = strings.join({error_str, error_trim}, "\n", context.temp_allocator)
+			continue
 		}
 
-		file_index_str : string = error_trim[:first_colon_offset];
+		file_index_str : string = error_trim[:first_colon_offset]
 		// Trim off until first colon
-		first_number_trimmed : string = error_trim[first_colon_offset+1:];
+		first_number_trimmed : string = error_trim[first_colon_offset+1:]
 
 		// Find second colon
-		second_colon : int = strings.index(first_number_trimmed, ":");
+		second_colon : int = strings.index(first_number_trimmed, ":")
 		if second_colon == -1 {
 			// If we now dont find a second ':' this line does not contain file/line numbers so we also just append it.
-			error_str = strings.join({error_str, error_trim}, "\n", context.temp_allocator);
-			continue;
+			error_str = strings.join({error_str, error_trim}, "\n", context.temp_allocator)
+			continue
 		}
 
 		// From here we can be pretty sure that 'file_index_str' is a number reffereing to a file;
 		// and that 'line_number' is the actual line number.
 
-		line_number : string = first_number_trimmed[:second_colon];
-		remaining_msg : string = first_number_trimmed[second_colon+1:];
+		line_number : string = first_number_trimmed[:second_colon]
+		remaining_msg : string = first_number_trimmed[second_colon+1:]
 
 
-		file_str : string = file_index_str; // we fallback to the number given.
+		file_str : string = file_index_str // we fallback to the number given.
 
 		if src_files != nil {
-			file_index_uint , parse_uint_ok := strconv.parse_uint(file_index_str);
+			file_index_uint , parse_uint_ok := strconv.parse_uint(file_index_str)
 		 	
-		 	if parse_uint_ok && file_index_uint < cast(uint)len(src_files) {
-		 		file_str = filepath.base(src_files[file_index_uint]);
+		 	if parse_uint_ok && file_index_uint < len(src_files) {
+		 		file_str = filepath.base(src_files[file_index_uint])
 		 	} 
 		}
 
-
-		out_line := fmt.aprintf("FILE:{} | LINE:{} -{}",file_str, line_number,remaining_msg, allocator =  context.temp_allocator);
-		error_str = strings.join({error_str, out_line}, "\n", context.temp_allocator);
+		out_line := fmt.aprintf("FILE:{} | LINE:{} -{}",file_str, line_number,remaining_msg, allocator =  context.temp_allocator)
+		error_str = strings.join({error_str, out_line}, "\n", context.temp_allocator)
 	}
 
-	return error_str;
+	return error_str
 }

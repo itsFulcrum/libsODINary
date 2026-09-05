@@ -83,44 +83,44 @@ MaterialData :: struct {
 
 material_data_create_default :: proc () -> MaterialData {
 
-	mat : MaterialData;
+	mat : MaterialData
 
-	material_data_init_default(&mat);
+	material_data_init_default(&mat)
 
-	return mat;
+	return mat
 }
 
 material_data_init_default :: proc(mat : ^MaterialData) {
 	if mat == nil {
-		return;
+		return
 	}
 	//mat.name;
 
-	mat.albedo_color 	= {0.8,0.8,0.8};
-	mat.emissive_color 	=  {0.0,0.0,0.0};
-	mat.emissive_strength = 0.0;
-	mat.roughness 		= 0.2;
-	mat.metallic 		= 0.0;
-	mat.normal_scale 	= 1.0;
-	mat.alpha_mode 		= AlphaBlendModes.Opaque;
-	mat.alpha_value 	= 1.0;
+	mat.albedo_color 	= {0.8,0.8,0.8}
+	mat.emissive_color 	=  {0.0,0.0,0.0}
+	mat.emissive_strength = 0.0
+	mat.roughness 		= 0.2
+	mat.metallic 		= 0.0
+	mat.normal_scale 	= 1.0
+	mat.alpha_mode 		= AlphaBlendModes.Opaque
+	mat.alpha_value 	= 1.0
 
 	//mat.albedo_alpha_tex_filenam;
 	//mat.normal_tex_filename;
 	//mat.orm_tex_filename;
 	//mat.emissive_tex_filename;
 
-	mat.has_albedo_alpha_tex = false;
-	mat.has_normal_tex		 = false;
-	mat.has_ao_tex			 = false;
-	mat.has_roughness_tex	 = false;
-	mat.has_metallic_tex	 = false;
-	mat.has_opacity_tex		 = false; // unfortunatly there is no definite way to know wheather the opacity was included as part of the albedo_alpha texture
-	mat.has_emissive_tex	 = false;
+	mat.has_albedo_alpha_tex = false
+	mat.has_normal_tex		 = false
+	mat.has_ao_tex			 = false
+	mat.has_roughness_tex	 = false
+	mat.has_metallic_tex	 = false
+	mat.has_opacity_tex		 = false // unfortunatly there is no definite way to know wheather the opacity was included as part of the albedo_alpha texture
+	mat.has_emissive_tex	 = false
 
-	mat.render_double_sided  = false;
+	mat.render_double_sided  = false
 
-	return;
+	return
 }
 
 
@@ -166,5 +166,5 @@ transform_data_transform_child_by_parent :: proc "contextless" (child, parent: T
         position    = parent.position + linalg.quaternion128_mul_vector3(parent.orientation, child.position * parent.scale),
         scale       = parent.scale * child.scale,
         orientation = parent.orientation * child.orientation,
-    };
+    }
 }

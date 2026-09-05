@@ -1,0 +1,42 @@
+﻿  tinyvdb_io_impl.c
+  tinyvdb_io.c
+  tinyvdb_io.cc
+tinyvdb_io.c.obj : warning LNK4006: tvdb_nodemask_is_on already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_nodemask_count_on already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_file_open already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_file_open_memory already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_file_close already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_read_all_grids already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_grid_count already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_grid_name already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_grid_type_name already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_status_string already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_is_big_endian already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_value_type_size already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_write_to_memory already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_file_save already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_grid_is_point_data already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_grid_is_point_index already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_grid_point_data_blob already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_grid_point_data_blob_size already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io.c.obj : warning LNK4006: tvdb_grid_set_point_data_blob already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_nodemask_is_on already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_nodemask_count_on already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_file_open already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_file_open_memory already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_file_close already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_read_all_grids already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_grid_count already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_grid_name already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_grid_type_name already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_status_string already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_is_big_endian already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_value_type_size already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_write_to_memory already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_file_save already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_grid_is_point_data already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_grid_is_point_index already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_grid_point_data_blob already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_grid_point_data_blob_size already defined in tinyvdb_io.cc.obj; second definition ignored
+tinyvdb_io_impl.obj : warning LNK4006: tvdb_grid_set_point_data_blob already defined in tinyvdb_io.cc.obj; second definition ignored
+  TinyVDB_IO.vcxproj -> C:\Users\fulcrum\Documents\Projects\ODIN\libsODINary\VdbTiny\src\build\Release\TinyVDB_IO.lib

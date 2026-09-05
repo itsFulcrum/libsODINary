@@ -607,7 +607,6 @@ ID_LOCAL :: proc(label: string, index: u32 = 0) -> ElementId {
 	return _HashStringWithOffset(MakeString(label), index, GetOpenElementId())
 }
 
-
 // 
 // NOTICE: - The following procedures are _Not_ part of the original Clay-Odin Bindings
 // 			 They Inherit The Clay license. 
@@ -620,17 +619,17 @@ BeginChild :: proc {
 }
 
 BeginChild_ID :: proc "contextless" (id : ElementId, config: ElementDeclaration) {
-	_OpenElementWithId(id);
+	_OpenElementWithId(id)
 	_ConfigureOpenElement(config)
 }
 
 BeginChild_Label :: proc "contextless" (id_label : string, config: ElementDeclaration) {
-	_OpenElementWithId(ID(id_label));
+	_OpenElementWithId(ID(id_label))
 	_ConfigureOpenElement(config)
 }
 
 BeginChild_Label_Index :: proc "contextless" (id_label : string, id_index : u32, config: ElementDeclaration) {
-	_OpenElementWithId(ID(id_label, id_index));
+	_OpenElementWithId(ID(id_label, id_index))
 	_ConfigureOpenElement(config)
 }
 
@@ -651,15 +650,15 @@ BeginDynamicChild :: proc {
 }
 
 BeginDynamicChild_ID :: proc(id : ElementId){
-	_OpenElementWithId(id);
+	_OpenElementWithId(id)
 }
 
 BeginDynamicChild_Label :: proc(id_label : string){
-	_OpenElementWithId(ID(id_label));
+	_OpenElementWithId(ID(id_label))
 }
 
 BeginDynamicChild_Label_Index :: proc(id_label : string, id_index : u32){
-	_OpenElementWithId(ID(id_label, id_index));
+	_OpenElementWithId(ID(id_label, id_index))
 }
 
 ConfigDynamicChild :: proc(config: ElementDeclaration){
@@ -674,17 +673,17 @@ BeginScopedDynamicChild :: proc {
 
 @(deferred_none = _CloseElement)
 BeginScopedDynamicChild_ID :: proc(id : ElementId){
-	_OpenElementWithId(id);
+	_OpenElementWithId(id)
 }
 
 @(deferred_none = _CloseElement)
 BeginScopedDynamicChild_Label :: proc(id_label : string){
-	_OpenElementWithId(ID(id_label));
+	_OpenElementWithId(ID(id_label))
 }
 
 @(deferred_none = _CloseElement)
 BeginScopedDynamicChild_Label_Index :: proc(id_label : string, id_index : u32){
-	_OpenElementWithId(ID(id_label, id_index));
+	_OpenElementWithId(ID(id_label, id_index))
 }
 
 // BeginScopedChild() is a conveniance that Auto calls EndChild/_CloseElement at the end of the current Scope.
@@ -697,18 +696,18 @@ BeginScopedChild :: proc {
 
 @(deferred_none = _CloseElement)
 BeginScopedChild_ID :: proc "contextless" (id : ElementId, config: ElementDeclaration) {
-	_OpenElementWithId(id);
+	_OpenElementWithId(id)
 	_ConfigureOpenElement(config)
 }
 
 @(deferred_none = _CloseElement)
 BeginScopedChild_Label :: proc "contextless" (id_label : string, config: ElementDeclaration) {
-	_OpenElementWithId(ID(id_label));
+	_OpenElementWithId(ID(id_label))
 	_ConfigureOpenElement(config)
 }
 
 @(deferred_none = _CloseElement)
 BeginScopedChild_Label_Index :: proc "contextless" (id_label : string, id_index : u32, config: ElementDeclaration) {
-	_OpenElementWithId(ID(id_label, id_index));
+	_OpenElementWithId(ID(id_label, id_index))
 	_ConfigureOpenElement(config)
 }

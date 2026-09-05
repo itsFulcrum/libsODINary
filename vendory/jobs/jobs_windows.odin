@@ -2,7 +2,7 @@
 package jobs
 
 import "base:runtime"
-import "core:os"
+// import "core:os"
 import "core:sys/windows"
 
 foreign import kernel32 "system:Kernel32.lib"

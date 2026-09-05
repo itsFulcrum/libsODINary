@@ -102,8 +102,8 @@ target_language_version_t :: enum u32 {
 
 /* EShExecutable counterpart */
 executable_t :: enum u32 { 
-	EX_VERTEX_FRAGMENT, 
-	EX_FRAGMENT 
+	EX_VERTEX_FRAGMENT,
+	EX_FRAGMENT,
 }
 
 // EShOptimizationLevel counterpart
