@@ -4,50 +4,45 @@ import "glslang"
 
 import "core:c"
 import "core:mem"
-
-// import "core:log"
 import "core:fmt"
 import "core:strings"
 import "core:strconv"
 import "core:path/filepath"
 
-
 // @Note:
-// This is an example / default way to transpile glsl source code to spirv using glslang bindings.
+// This is an example/default way to transpile glsl source code to spirv using glslang bindings.
 // I do not claim to be an expert on glslang and how to use it. For more advanced features such as shader reflection and such, refer to the original non existent documentation for glslang.
-// Upon compilation or other erros, the output spirv data will instead be a readable error string.
-
-// @ A note on the 'src_files' parameter.
-// Parameter 'src_files' is optional and can be left nill but should be an array of filepaths that made up the glsl_src_code string. 
-// This is helpfull for returning compile errors with correct file names and line numbers in cases where we constructed the src code from multiple files/strings instead of just one.
-// Note that 'src_files' must be ordered such that the file_index from the compile error can be used to index into the array to retrieve the correct filename.
-// As a quick explanation. When compiling glsl we can usually provide multiple strings and link them together into a shader programm so that we can reuse bits of code between programms.
+// @Note- on the 'glsl_src_filenames' parameter.
+// Parameter 'glsl_src_filenames' is optional and can be left nill but should be an array of filepaths that made up the glsl_src_code string. 
+// This is helpfull for returning compile errors with correct file names and line numbers in cases where the src code was originally made form from multiple files/strings instead of just one.
+// Note that 'glsl_src_filenames' must be ordered such that the file_index from the compile error can be used to index into the array to retrieve the correct filename.
+// As a quick explanation. When compiling glsl we can usually provide multiple strings and link them together into a shader programm so that we can reuse pieces of code between programms.
 // Often though we do this kind preprocessing ourselves with a custom #include directive to ease development. Shady's preprocessor does this e.g.
 // Therefore in glsl src code, we can insert '#line <lineNbr> <file_index>' preprocessor directives which may look like this '#line 0 2'. 
 // This tells the compiler that the current file has an index of 2 and the line number is from now on 0. (Line After that is considerd as 1).
 // One can think of this as overwriting the complier macros '__FILE__' and '__LINE__' in c/c++ compilers
 // Glsl compilers then use this when printing compile errors. 
 // If we manually unfold includes and combine strings into a single source string we rely on this '#line' directive to keep line numbers and files in sync between our source code representation and the preprocessed representaiton.
-// When using the shady preprocessor for loading glsl files, the filenames that can be recorded will be correctly orderd such that they can be passed to this function or more specifically
-// the 'format_glslang_error_info_log()' procedure below.
-transpile_glsl_to_SPIRV :: proc(glsl_src_code : []u8, shader_stage : ShaderStage, spirv_version : SpirvVersion, target_client_version : ClientVersion, src_files : []string = nil, allocator := context.allocator) -> (data_or_error_str: []byte, ok : bool) {
+// When using the shady preprocessor for loading glsl files, the filenames that can be recorded will be correctly orderd such that they can be passed to this function.
+compile_glsl_to_spirv :: proc(glsl_src_code : []u8, compile_info : ^SpirvCompileInfo, allocator := context.allocator) -> (spirv_code: []byte, ok : bool) {
 	
 	assert(glsl_src_code != nil)
-	assert(shader_stage != ShaderStage.COUNT)
-	assert(spirv_version != SpirvVersion.COUNT)
-	assert(target_client_version != ClientVersion.COUNT)
+	assert(compile_info.shader_stage   != ShaderStage.COUNT)
+	assert(compile_info.spirv_version  != SpirvVersion.COUNT)
+	assert(compile_info.client_version != ClientVersion.COUNT)
 
-	client 							: glslang.client_t 					= target_client_version == ClientVersion.OPENGL_450 ? glslang.client_t.CLIENT_OPENGL : glslang.client_t.CLIENT_VULKAN
-	shader_stage_glslang 			: glslang.stage_t 					= cast(glslang.stage_t)shader_stage
-	client_version_glslang 			: glslang.target_client_version_t   = cast(glslang.target_client_version_t)target_client_version
-	target_language_version_glslang : glslang.target_language_version_t = cast(glslang.target_language_version_t)spirv_version
+	client 							: glslang.client_t 					= compile_info.client_version == ClientVersion.OPENGL_450 ? glslang.client_t.CLIENT_OPENGL : glslang.client_t.CLIENT_VULKAN
+	shader_stage_glslang 			: glslang.stage_t 					= cast(glslang.stage_t)compile_info.shader_stage
+	client_version_glslang 			: glslang.target_client_version_t   = cast(glslang.target_client_version_t)compile_info.client_version
+	target_language_version_glslang : glslang.target_language_version_t = cast(glslang.target_language_version_t)compile_info.spirv_version
 
+	// FIXME: should prob null terminate this? preprocessor already null terminates but maybe caller didn't use it.
 	shader_code_cstr : cstring = cast(cstring)raw_data(glsl_src_code)
 
 	input : glslang.input_t = {
 		language = glslang.source_t.SOURCE_GLSL,
-		stage  = shader_stage_glslang,
-		client = client,		
+		stage    = shader_stage_glslang,
+		client   = client,		
 		client_version = client_version_glslang,
 		target_language = glslang.target_language_t.TARGET_SPV,
 		target_language_version = target_language_version_glslang,
@@ -60,48 +55,35 @@ transpile_glsl_to_SPIRV :: proc(glsl_src_code : []u8, shader_stage : ShaderStage
 		resource = glslang.default_resource(),
 	}
 
-
 	shader : ^glslang.shader_t = glslang.shader_create(&input)
 	defer glslang.shader_delete(shader)
 	
 	successful : c.int
 	successful = glslang.shader_preprocess(shader, &input)
 
-	src_filename : string = "unknown"
-	if src_files != nil && len(src_files) > 0 {
-		src_filename = strings.clone(src_files[0], context.temp_allocator)
-	}
-
 	if successful == 0 {
 		info_log : string = strings.clone_from_cstring(glslang.shader_get_info_log(shader), context.temp_allocator)
-		error_str : string = format_glslang_error_info_log(&info_log, "Preprocessing", src_files)	
-		err := transmute([]u8)error_str
-		return err, false
+		compile_info.out_error_string = format_glslang_error_info_log(&info_log, "Preprocessing", compile_info.glsl_src_filenames)	
+		return nil, false
 	}
 
-	// assert(shader != nil);
-	// log.warnf("Compile to spirv, successful {}", successful);
 	successful = glslang.shader_parse(shader, &input)
 	if successful == 0 {
-
 		info_log : string = strings.clone_from_cstring(glslang.shader_get_info_log(shader), context.temp_allocator)
-		error_str : string = format_glslang_error_info_log(&info_log, "Parsing", src_files)		
-		err := transmute([]u8)error_str
-		return err, false
+		compile_info.out_error_string = format_glslang_error_info_log(&info_log, "Parsing", compile_info.glsl_src_filenames)		
+		return nil, false
 	}
-
 
 	program : ^glslang.program_t = glslang.program_create()
 	defer glslang.program_delete(program)
 
 	glslang.program_add_shader(program, shader)
 	
-	successful = glslang.program_link(program, cast(c.int)(glslang.messages_t.MSG_SPV_RULES_BIT | glslang.messages_t.MSG_VULKAN_RULES_BIT) )
+	successful = glslang.program_link(program, cast(c.int)(glslang.messages_t.MSG_SPV_RULES_BIT | glslang.messages_t.MSG_VULKAN_RULES_BIT))
 	if successful == 0 {		
 		info_log : string = strings.clone_from_cstring(glslang.shader_get_info_log(shader), context.temp_allocator)
-		error_str : string = format_glslang_error_info_log(&info_log, "Linking", src_files)
-		err := transmute([]u8)error_str
-		return err, false
+		compile_info.out_error_string = format_glslang_error_info_log(&info_log, "Linking", compile_info.glsl_src_filenames)
+		return nil, false
 	}
 
 	glslang.program_SPIRV_generate(program, shader_stage_glslang)
@@ -115,7 +97,6 @@ transpile_glsl_to_SPIRV :: proc(glsl_src_code : []u8, shader_stage : ShaderStage
 
 	return spirv_data, true
 }
-
 
 format_glslang_error_info_log :: proc(info_log : ^string, stage: string, src_files : []string = nil) -> string {
 	

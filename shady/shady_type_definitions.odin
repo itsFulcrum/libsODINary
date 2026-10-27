@@ -2,49 +2,49 @@ package shady
 
 ParseFlags :: distinct bit_set[ParseFlag]
 ParseFlag :: enum u32 {
-    UnfoldIncludes = 0,             // Wheather to search for and unfold '#include "filename.glsl"' preprocessor statements.
-    StripAlreadyIncluded,           // Wheather to omit already included files in the output. There is no reason not to do this unless debugging maybe.
-    GenerateHeaderguards,           // Wheather to generate headerguards based on filenames of include files automatically.
-    ReplaceVersionString,           // Wheather to replace the version string with someting else. 'version_str' in ParseInfo must be set.
+    UnfoldIncludes = 0,    // Wheather to search for and unfold '#include "filename.glsl"' preprocessor statements.
+    StripAlreadyIncluded,  // Wheather to omit already included files in the output. There is no reason not to do this unless for debugging maybe.
+    GenerateHeaderguards,  // Wheather to generate headerguards based on filenames of include files automatically.
+    ReplaceVersionString,  // Wheather to replace the glsl version string at the top of the file with someting else. 'version_str' in 'ParseInfo' must be set.
 }
 
-DEFAULT_PARSE_FLAGS :: ParseFlags{.UnfoldIncludes, .GenerateHeaderguards, .StripAlreadyIncluded}
-
-
+PARSE_FLAGS_DEFAULT :: ParseFlags{.UnfoldIncludes, .GenerateHeaderguards, .StripAlreadyIncluded}
 
 
 ReadFile_CallbackSignature :: #type proc(filename: string, allocator := context.allocator) -> (data : []byte, ok : bool)
 
 ParseInfo :: struct {
-    parse_flags : ParseFlags,                       // Required: Options for parsing.
-    out_include_files: ^[dynamic]string,            // Optional: string array to be filled with filenames of included files. If 'nill' unfolding includes will still work but filenames are not tracked. Ignored if 'UnfoldIncludes' flag is not set.
+    parse_flags    : ParseFlags,                    // Required: Options for parsing.
     insert_defines : []string,                      // Optional: A set of macro keywords to be defined at the top. e.g. {"USE_ALPHA", "SAMPLE_COUNT 16"} will insert '#define USE_ALPHA' and '#define SAMPLE_COUNT 16' at the top of the file.
-    version_str : string,                           // Optional: A version string to replace the current version with. e.g. "450 core". '#version' directive must still be present in the source file. Ignored if 'ReplaceVersionString' flag is not set.
-    read_file_proc : ReadFile_CallbackSignature,    // Optional: A procedure callback to read files from disk. If nill, default procedure in odins 'core:os' package will be used.
+    version_str    : string,                        // Optional: A version string to replace the current version with. e.g. "450 core". '#version' directive must still be present in the source file. Ignored if 'ReplaceVersionString' flag is not set.
+    read_file_proc : ReadFile_CallbackSignature,    // Optional: A procedure callback to read files from disk. If nill, defaults to procedures in the 'core:os' package.
     
-    error_string : string, // ReadOnly: Filled with an error message upon errors, duh. Allocated using context.temp_allocator.
+    out_include_files: []string,                    // ReadOnly: List of filenames included during unfolding of '#include' directives. nil when '.UnfoldIncludes' flag is not set.
+    out_error_string : string,                      // ReadOnly: Filled with an error message upon errors, duh. Allocated using context.temp_allocator.
+}
+
+SpirvCompileInfo :: struct {    
+    shader_stage   : ShaderStage,
+    spirv_version  : SpirvVersion,
+    client_version : ClientVersion,
+
+    glsl_src_filenames : []string,  // Optional: provide glsl source files for better error printing. 
+    out_error_string : string,      // Readonly: Error string upon compilation failure. This Will Contain the Compile Error. Allocated using context.temp_allocator
 }
 
 ReflectInfo :: struct {
+    shader_stage : ShaderStage,
     num_samplers : u32,
     num_uniform_buffers : u32,
     
-    num_readonly_storage_textures : u32,
-    num_writeonly_storage_textures : u32,
-    num_readwrite_storage_textures : u32,
-    num_readonly_storage_buffers: u32,
-    num_writeonly_storage_buffers : u32,
-    num_readwrite_storage_buffers : u32,
+    num_readonly_storage_textures  : u32,
+    num_readwrite_storage_textures : u32, // WriteOnly AND ReadWrite
 
-    num_storage_textures : u32,             // readonly + writeonly + readwrite
-    num_writeable_storage_textures : u32,   // writeonly + readwrite
-
-    num_storage_buffers  : u32,             // readonly + writeonly + readwrite
-    num_writeable_storage_buffers : u32,    // writeonly + readwrite
+    num_readonly_storage_buffers   : u32,    
+    num_readwrite_storage_buffers  : u32, // WriteOnly AND ReadWrite
 
     compute_threadcount : [3]u32,
 }
-
 
 // @Note: Matches with glsl.stage_t so one can do:  'cast(glsl.stage_t)ShaderStage.VERTEX'
 ShaderStage :: enum u32 {

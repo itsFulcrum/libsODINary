@@ -6,6 +6,7 @@
 # Shady Ignores
 shady/glslang/lib/release/NotNeededYet/
 shady/glslang/lib/debug/
+shady/spirv_reflect/src/
 
 # Poly Ignores 
 poly/assimp/lib/debug/

@@ -8,19 +8,18 @@ import "core:fmt"
 
 // Parse and preprocess a glsl source file with options to do '#include' unfolding, '#define' insertions and tracking of included filepaths.
 // Returned is a string buffer containing the combined file contents with correct '#line' directives added during unfolding of include files.
-// Optionally a pointer to a dynamic string array can be provided inside the parse info to record all files included during the procedure.
-// Note that the file index for the '#line' directive can only be set correctly if this array is provided, otherwise it will stil track line numbers but file index will always be 0.
+// Optionally a slice of string is written in 'ParseInfo' which recorded all files included during unfolding.
+// Note that the file index for the '#line' directive can only be set correctly if Include Unfloding is enabled, otherwise it will stil track line numbers but file index will always be 0.
 // This array can be useful for tracking error messages inside include files during compilation (to spirv for instance) and also for hot reloading shaders at runtime.
 // Upon errors, return 'ok' bool will be false but contents may still contain data as not all errors will result in compilation failure neccesarily. (though likely.)
-// So contents has to potentially be freed even on errors.
+// So the returned 'contents' has to be checked if its nil potentially be freed even on errors.
 // Inside ParseInfo struct the 'out_error_string' will be set with all error mesagges that occured.
 parse_glsl_file :: proc(filename: string, parse_info: ^ParseInfo, allocator := context.allocator) -> (contents : []u8, ok : bool) {
 
 	src_filename_clean, err := os.clean_path(filename, context.temp_allocator)
 	assert(err == nil)
 
-	delete_string(parse_info.error_string)
-	parse_info.error_string = ""
+	parse_info.out_error_string = ""
 
 	if !os.exists(src_filename_clean) || !os.is_file(src_filename_clean) {
 		err_str := fmt.aprintf("SHADY: Parse Error: File does not exist: {}\n", src_filename_clean, allocator = context.temp_allocator)
@@ -34,14 +33,38 @@ parse_glsl_file :: proc(filename: string, parse_info: ^ParseInfo, allocator := c
 
 	builder : [dynamic]u8 = make_dynamic_array([dynamic]u8, allocator)
 
-	parse_ok := parse_glsl_file_recursive(&builder, filename, parse_info, is_top_level_file = true, allocator = allocator)
+	include_files     : [dynamic]string
+	include_files_ptr : ^[dynamic]string = nil
+
+	if .UnfoldIncludes in parse_info.parse_flags {
+		include_files = make_dynamic_array([dynamic]string, allocator)
+		include_files_ptr = &include_files
+	}
+
+	parse_ok := parse_glsl_file_recursive(&builder, filename, parse_info, is_top_level_file = true, out_include_files = include_files_ptr, allocator = allocator)
+	if !parse_ok {
+
+		if include_files_ptr != nil{
+			for &str in include_files {
+				delete_string(str)
+			}
+			delete(include_files)
+		}
+		delete(builder)
+		return nil, false
+	}
+
+	if .UnfoldIncludes in parse_info.parse_flags {
+		parse_info.out_include_files = include_files[:]
+	}
+
+	append(&builder, 0) // null terminate for cstring stuff
 
 	return builder[:], parse_ok
 }
 
 @(private="file")
-parse_glsl_file_recursive :: proc(builder : ^[dynamic]u8, filename: string, parse_info: ^ParseInfo, is_top_level_file : bool, allocator := context.allocator) -> (ok : bool) {
-
+parse_glsl_file_recursive :: proc(builder : ^[dynamic]u8, filename: string, parse_info: ^ParseInfo, is_top_level_file : bool, out_include_files : ^[dynamic]string = nil, allocator := context.allocator) -> (ok : bool) {
 
 	parse_ok : bool = true
 
@@ -61,17 +84,15 @@ parse_glsl_file_recursive :: proc(builder : ^[dynamic]u8, filename: string, pars
 
 	parse_flags := parse_info.parse_flags
 
-
 	_file_index : int = 0
 
-
-	unfold : bool = .UnfoldIncludes in parse_flags && parse_info.out_include_files != nil
+	unfold : bool = .UnfoldIncludes in parse_flags && out_include_files != nil
 
 	if unfold {
 		
 		already_included := false
 
-		for &path, index in parse_info.out_include_files {
+		for &path, index in out_include_files {
 
 			if(0 == strings.compare(path, src_filename_clean)){
 				already_included = true
@@ -81,7 +102,7 @@ parse_glsl_file_recursive :: proc(builder : ^[dynamic]u8, filename: string, pars
 		}
 
 		if !already_included {		
-			append(parse_info.out_include_files, strings.clone(src_filename_clean, allocator))
+			append(out_include_files, strings.clone(src_filename_clean, allocator))
 			_file_index = len(parse_info.out_include_files) -1
 		
 		} else if .StripAlreadyIncluded in parse_flags {
@@ -107,7 +128,7 @@ parse_glsl_file_recursive :: proc(builder : ^[dynamic]u8, filename: string, pars
 			headerguard_str : string = strings.join({src_filename_stem, "AUTOGUARD"}, "_", context.temp_allocator) 
 
 			ifndef_str := strings.join({"#ifndef", headerguard_str, "\n"}, " ", context.temp_allocator)
-			def_str := strings.join({"#define", headerguard_str, "\n"}, " ", context.temp_allocator)
+			def_str    := strings.join({"#define", headerguard_str, "\n"}, " ", context.temp_allocator)
 			
 			append(builder, ifndef_str)
 			append(builder, def_str)
@@ -258,18 +279,43 @@ parse_glsl_file_recursive :: proc(builder : ^[dynamic]u8, filename: string, pars
 		append(builder, "#endif \n")
 	}
 
-
-
 	return parse_ok
 }
 
 
 @(private="file")
 append_error_string_to_parse_info :: proc( parse_info: ^ParseInfo, err_str : string) {
-	parse_info.error_string = strings.join({parse_info.error_string, err_str},"", context.temp_allocator)
+	parse_info.out_error_string = strings.join({parse_info.out_error_string, err_str},"", context.temp_allocator)
 }
 
 @(private="file")
 make_file_line_insertion_string :: proc(file_index : int, line_nbr : int) -> string {
 	return fmt.aprintf("#line {} {} \n", line_nbr, file_index, allocator = context.temp_allocator)
+}
+
+
+read_file_contents :: proc(filename: string, allocator := context.allocator) -> (data : []byte, ok : bool) {
+
+	if !os.exists(filename) || !os.is_file(filename) {
+		return nil, false
+	}
+
+	file_contents, err := os.read_entire_file_from_path(filename, allocator)
+	if err != nil || file_contents == nil {
+		return nil, false
+	}
+
+	return file_contents, true
+}
+
+
+write_file_contents :: proc(filenme: string, data: []byte) -> bool {
+	
+	if data == nil {
+		return false
+	}
+
+	err :=  os.write_entire_file_from_bytes(filenme, data)
+
+	return err == nil
 }
