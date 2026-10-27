@@ -50,7 +50,7 @@ test_writer :: proc(src_img_path : string, file_format : FileFormat , output_dir
 		case .PNG : unimplemented("png Write not yet unimplemented")
 		case .JPG : write_err = write_jpg_to_file(out_filepath, converted_pic, write_flags)
 		case .TIF : write_err = write_tif_to_file(out_filepath, converted_pic, write_flags)
-		case .HDR : unimplemented("hdr Writer not yet unimplemented")
+		case .HDR : write_err = write_hdr_to_file(out_filepath, converted_pic, write_flags)
 		case .EXR : unimplemented("exr Writer not yet unimplemented")
 		}
 

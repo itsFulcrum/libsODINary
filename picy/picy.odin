@@ -15,6 +15,13 @@ import tiff "libtiff"
 import stbi "vendor:stb/image"
 // import exr "vendor:OpenEXRCore"
 
+// TODO:
+
+// - png writer - preferebly with LodePng bc stb image does not support writing 16 bit png images as far as i remember.
+// - exr reader & writer
+// - optimize performance for convert function
+// - srgb to linear helpers ?
+
 
 ReadFlags :: distinct bit_set[ReadFlag; u32]
 ReadFlag :: enum u32 {
@@ -632,6 +639,44 @@ read_hdr_from_file :: proc(filepath: string, read_info : ReadInfo, allocator := 
 	}
 
 	return out_pic, Error.NONE
+}
+
+
+write_hdr_to_file :: proc(filepath : string, #by_ptr pic : Picture, write_flags : WriteFlags, allocator := context.allocator) -> Error {
+
+	is_valid_picture_with_error(pic) or_return
+
+	stbi.flip_vertically_on_write(.FLIP_VERTICALLY in write_flags)
+
+	src_format := pic.format
+	src_buffer : [^]byte = &pic.pixels[0]
+	should_free_src_buffer : bool = false
+
+	defer if should_free_src_buffer {
+		free(src_buffer)
+	}
+
+	if pic.format != Format.RGB32_F {
+
+		target_format := Format.RGB32_F
+		converted_buffer : []byte = convert_format(pic.pixels, pic.format, pic.width, pic.height, target_format, allocator)
+		
+		src_format = target_format
+		src_buffer = &converted_buffer[0]
+		should_free_src_buffer = true
+	}
+
+	num_channels : i32 = 3 // Always RGB32_F
+
+	filepath_cstr := strings.clone_to_cstring(filepath, context.temp_allocator)
+
+	stbi_error : i32 = stbi.write_hdr(filepath_cstr, cast(i32)pic.width, cast(i32)pic.height, num_channels, cast([^]f32)src_buffer)
+
+	if stbi_error == 0 {		
+		return Error.FAILED_TO_WRITE_TO_FILE
+	}
+
+	return Error.NONE
 }
 
 

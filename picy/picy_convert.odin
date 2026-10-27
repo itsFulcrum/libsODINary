@@ -184,13 +184,13 @@ get_read_info_target_format :: proc(src_format : Format, read_info : ReadInfo) -
 
 flip_vertically :: proc(pixels : []byte, width : u32, height : u32, format : Format, allocator := context.allocator){
 
-	bytes_per_pixel : u32 = calc_bytes_per_pixel(format)
-	bytes_per_row   : u32 = width * bytes_per_pixel
+	bytes_per_row   : u32 = width * calc_bytes_per_pixel(format)
 
 	temp_row_buf : [^]byte = make_multi_pointer([^]byte, bytes_per_row, allocator)
+	defer free(temp_row_buf)
 
-	half_height: u32 = height / 2
-	height_minus_one: u32 = height -1
+	half_height      : u32 = height / 2
+	height_minus_one : u32 = height - 1
 
 	for h : u32 = 0; h < half_height; h+= 1 {
 
@@ -201,8 +201,6 @@ flip_vertically :: proc(pixels : []byte, width : u32, height : u32, format : For
 		mem.copy(top_row     , bot_row     , int(bytes_per_row))
 		mem.copy(bot_row     , temp_row_buf, int(bytes_per_row))
 	}
-
-	free(temp_row_buf)
 }
 
 
@@ -230,7 +228,7 @@ convert_format_picture :: proc(pic : Picture, target_format : Format, allocator 
 	return out_pic, Error.NONE
 }
 
-// TODO: TEST
+
 convert_format_explicit :: proc(src_pixels : []byte, src_format : Format, width: u32, height: u32, dst_format: Format, allocator := context.allocator) -> []byte {
 
 	assert(src_pixels != nil)
@@ -567,6 +565,10 @@ convert_u8_to_f16 :: proc "contextless" (v : u8) -> f16 {
 }
 convert_u8_to_f32 :: proc "contextless" (v : u8) -> f32 {
 	return f32(v) / 255.0
+}
+
+simd_convert_u8_to_f32 :: proc "contextless" (v : [4]u8) -> #simd[4]f32 {
+	return simd.div(#simd[4]f32{f32(v.x), f32(v.y), f32(v.z), f32(v.w)}, #simd[4]f32{255.0, 255.0, 255.0, 255.0})
 }
 
 convert_u16_to_u8 :: proc "contextless" (v : u16) -> u8 {

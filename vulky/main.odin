@@ -11,6 +11,8 @@ import "vendor:glfw"
 
 import vk "vendor:vulkan"
 
+import "../picy"
+
 
 Globals :: struct {
 
@@ -93,17 +95,21 @@ main :: proc() {
 	global.persist_allocator = mem.dynamic_arena_allocator(&global.persist_arena);
 	defer mem.dynamic_arena_destroy(&global.persist_arena);
 
+	log.errorf("Test!!")
+	picy.test_writer("7.jpg", picy.FileFormat.HDR, "hdr_writer_test")
 
 
-	ok := init(&global)
-	if !ok {
-		return
-	}
+	return
+
+	// ok := init(&global)
+	// if !ok {
+	// 	return
+	// }
 
 	
-	run(&global)
+	// run(&global)
 
-	deinit(&global)	
+	// deinit(&global)	
 }
 
 init :: proc(globals : ^Globals) -> bool {
@@ -185,8 +191,6 @@ run :: proc(globals : ^Globals) {
 
 	for !glfw.WindowShouldClose(globals.window) {
 		glfw.PollEvents()
-
-
 
 
 		free_all(context.temp_allocator)
