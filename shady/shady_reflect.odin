@@ -1,17 +1,139 @@
 package shady
 
 import "core:log"
+import "core:fmt"
 import "core:strings"
 import "core:strconv"
 
-// @Note: THIS IS NOT COMPLETE AND DOES NOT WORK FOR EVERYTHING!
+import spv_refl "spirv_reflect"
+
+// @Note: RELECTION API IS NOT COMPLETE AND DOES NOT WORK FOR EVERYTHING! (Very Basic)
+// Perfer to use reflect_spriv() over reflect_parse_glsl_src_code()
+
+// Extract basic Reflection information from Spirv Code directly using Spirv-Reflect
+// Allocates temp data using context.temp_allocator.
+// Error string is allocated using context.temp_allocator.
+reflect_spirv :: proc(spriv_code : []u8) -> (reflect_info : ReflectInfo, error_string : string, ok : bool) {
+
+	assert(spriv_code != nil)
+
+	module : spv_refl.ShaderModule
+	res := spv_refl.CreateShaderModule(len(spriv_code), raw_data(spriv_code), &module)
+
+	if res != .SUCCESS {
+		error_string = fmt.aprintf("Faild to create spirv_reflect shader module: Error: {}", res)
+		return ReflectInfo{}, error_string, false
+	}
+	defer spv_refl.DestroyShaderModule(&module)
+	
+	reflect_info = ReflectInfo{}
+	reflect_info.shader_stage = spv_execution_model_to_shader_stage(module.spirv_execution_model)
+
+	num_descript_bindings : u32
+	res = spv_refl.EnumerateDescriptorBindings(&module, &num_descript_bindings, nil)
+	if res != .SUCCESS {
+		error_string = fmt.aprintf("Faild to enumerate descriptor bindings: Error: {}", res)
+		return ReflectInfo{}, error_string, false
+	}
+
+	if num_descript_bindings > 0 {
+
+		descriptor_bindings := make_slice([]^spv_refl.DescriptorBinding, int(num_descript_bindings), context.temp_allocator)
+
+		res = spv_refl.EnumerateDescriptorBindings(&module, &num_descript_bindings, &descriptor_bindings[0])
+		assert(res == .SUCCESS)
+
+		for binding in descriptor_bindings {
+
+			#partial switch binding.descriptor_type {
+			case .SAMPLER, .COMBINED_IMAGE_SAMPLER, .SAMPLED_IMAGE: {
+				reflect_info.num_samplers += 1
+			}
+			case .STORAGE_IMAGE: {
+				switch binding.resource_type {
+				case .UNDEFINED:
+				case .SAMPLER:
+				case .CBV: reflect_info.num_readonly_storage_textures  += 1 // Constant Buffer View (Readonly)
+				case .SRV: reflect_info.num_readonly_storage_textures  += 1 // Shader Resource View (Readonly)
+				case .UAV: reflect_info.num_readwrite_storage_textures += 1 // Unordered Acces View (Read/Write)
+				}
+			}
+			case .UNIFORM_BUFFER, .UNIFORM_BUFFER_DYNAMIC:
+				reflect_info.num_uniform_buffers += 1
+			case .STORAGE_BUFFER, .STORAGE_BUFFER_DYNAMIC: {
+				switch binding.resource_type {
+				case .UNDEFINED:
+				case .SAMPLER:
+				case .CBV: reflect_info.num_readonly_storage_buffers  += 1 // Constant Buffer View (Readonly)
+				case .SRV: reflect_info.num_readonly_storage_buffers  += 1 // Shader Resource View (Readonly)
+				case .UAV: reflect_info.num_readwrite_storage_buffers += 1 // Unordered Acces View (Read/Write)
+				}
+			}
+
+			// case .UNIFORM_TEXEL_BUFFER       = 4,
+			// case .STORAGE_TEXEL_BUFFER       = 5,
+			// case .INPUT_ATTACHMENT           = 10,
+			}
+
+		}
+	}
+
+	if module.spirv_execution_model == spv_refl.SpvExecutionModel.GLCompute {
+		assert(module.entry_point_count > 0)
+		entry_points_arr : [^]spv_refl.EntryPoint = cast([^]spv_refl.EntryPoint)module.entry_points
+
+		entry_point := entry_points_arr[0]
+
+		reflect_info.compute_threadcount.x = entry_point.local_size.x
+		reflect_info.compute_threadcount.y = entry_point.local_size.y
+		reflect_info.compute_threadcount.z = entry_point.local_size.z
+	}
+
+	return reflect_info, "", true
+}
+
+spv_execution_model_to_shader_stage :: proc(exec_model : spv_refl.SpvExecutionModel) -> ShaderStage {
+
+	switch exec_model {
+	case .Vertex:                 return ShaderStage.VERTEX
+	case .TessellationControl:    return ShaderStage.TESSCONTROL
+	case .TessellationEvaluation: return ShaderStage.TESSEVALUATION
+	case .Geometry:               return ShaderStage.GEOMETRY
+	case .Fragment:               return ShaderStage.FRAGMENT
+	case .GLCompute:              return ShaderStage.COMPUTE
+	case .Kernel:                 unimplemented("unimplemented SpvExecutionModel: Kernel")
+	case .TaskNV:                 return ShaderStage.TASK
+	case .MeshNV:                 return ShaderStage.MESH
+	case .RayGenerationKHR:       return ShaderStage.RAYGEN
+	//case .RayGenerationNV:        return ShaderStage.RAYGEN
+	case .IntersectionKHR:        return ShaderStage.INTERSECT
+	//case .IntersectionNV:         return ShaderStage.INTERSECT
+	case .AnyHitKHR:              return ShaderStage.ANYHIT
+	//case .AnyHitNV:               return ShaderStage.ANYHIT
+	case .ClosestHitKHR:          return ShaderStage.CLOSESTHIT
+	//case .ClosestHitNV:           return ShaderStage.CLOSESTHIT
+	case .MissKHR:                return ShaderStage.MISS
+	//case .MissNV:                 return ShaderStage.MISS
+	case .CallableKHR:            return ShaderStage.CALLABLE
+	//case .CallableNV:             return ShaderStage.CALLABLE
+	case .TaskEXT:                return ShaderStage.TASK
+	case .MeshEXT:                return ShaderStage.MESH
+	case .Max: panic("Invalid Execution Model!")
+	}
+
+	panic("Invalid Codepath")
+	//unimplemented()
+}
+
+// DEPRICATED
+
 // This is a fairly naive (and slow) implementation to get some limited reflection information from glsl src code.
 // That said it'll probably work just fine unless you do werid things or dont use a vulkan style glsl.
 
 // Here is a list of things that definitly _DONT_ work correctly.
 // First: All resources must have a 'layout' specifiyer at the beginning. Aka. Vulkan style.
 
-// Second: Macros and defines are compleatly ignored! Should be unfolded beforehand.
+// Second: Macros and defines are compleatly ignored!
 // Doing the following won't work even tough its valid glsl.
 // "#define TexSampler sampler2D
 // layout(set=2, binding=0) uniform TexSampler _tex;"
@@ -30,8 +152,8 @@ import "core:strconv"
 // "/* comment */ layout(binding=0) uniform _ubo;" -> this is not fine
 // "layout(binding=0) /* comment */ uniform _ubo;" -> this is not fine
 
-
-
+// Find basic reflection information from glsl source code by parsing the text.
+// @Note: This will not figure out the ShaderStage! - Prefer using reflection from spriv directly.. 
 reflect_parse_glsl_src_code :: proc (src_code : []u8) -> ReflectInfo {
 
 	info : ReflectInfo
@@ -90,7 +212,8 @@ reflect_parse_glsl_src_code :: proc (src_code : []u8) -> ReflectInfo {
 			if strings.contains(line_str, " readonly "){
 				info.num_readonly_storage_buffers += 1
 			} else if strings.contains(line_str, " writeonly "){
-				info.num_writeonly_storage_buffers += 1
+				//info.num_writeonly_storage_buffers += 1
+				info.num_readwrite_storage_buffers += 1
 			} else {
 				info.num_readwrite_storage_buffers += 1
 			}
@@ -188,7 +311,8 @@ reflect_parse_glsl_src_code :: proc (src_code : []u8) -> ReflectInfo {
 				if is_next_substring(sub_line, "readonly"){
 					info.num_readonly_storage_textures += 1
 				} else if is_next_substring(sub_line, "writeonly") {
-					info.num_writeonly_storage_textures += 1
+					//info.num_writeonly_storage_textures += 1
+					info.num_readwrite_storage_textures += 1
 				} else {
 					info.num_readwrite_storage_textures += 1
 				}
@@ -200,13 +324,6 @@ reflect_parse_glsl_src_code :: proc (src_code : []u8) -> ReflectInfo {
 		// if non of the above we assume its a uniform buffer. I dont think it can be anything else unless we are in OpenGl land which we dont support right now.
 		info.num_uniform_buffers += 1
 	}
-
-	info.num_storage_buffers = info.num_readonly_storage_buffers + info.num_writeonly_storage_buffers + info.num_readwrite_storage_buffers
-	info.num_writeable_storage_buffers = info.num_writeonly_storage_buffers + info.num_readwrite_storage_buffers
-
-	info.num_storage_textures = info.num_readonly_storage_textures + info.num_writeonly_storage_textures + info.num_readwrite_storage_textures
-	info.num_writeable_storage_textures = info.num_writeonly_storage_textures + info.num_readwrite_storage_textures
-
 
 	return info
 }
