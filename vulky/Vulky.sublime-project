@@ -68,7 +68,7 @@
 			"auto_close": false,
 			"timeit": true,
 			"focus": true,
-			"shell_cmd": "odin build main.odin -file -out:Vulky.exe -debug -collection:odinary=..\\libsODINary && (if exist Vulky.rdi del Vulky.rdi) && raddbg Vulky.exe",
+			"shell_cmd": "odin build main.odin -file -out:Vulky.exe -debug -collection:odinary=..\\..\\libsODINary && (if exist Vulky.rdi del Vulky.rdi) && raddbg Vulky.exe",
 		},
 	],
 
